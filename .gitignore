@@ -10,6 +10,8 @@
 *.userosscache
 *.sln.docstates
 *.env
+.next/
+next-env.d.ts
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
