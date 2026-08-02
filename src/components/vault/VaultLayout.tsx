@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { VaultData, Credential, Folder } from '@/types/vault';
+import { evaluatePasswordStrength } from '@/utils/passwordGen';
 import FolderList from './FolderList';
 import FolderFormModal from './FolderFormModal';
 import FolderCard from './FolderCard';
@@ -14,7 +15,7 @@ import PasswordGeneratorModal from '../tools/PasswordGeneratorModal';
 import BackupManagerModal from '../backup/BackupManagerModal';
 import ConfirmModal from '../ui/ConfirmModal';
 import AccountProfileModal from '../auth/AccountProfileModal';
-import { Search, Plus, Shield, LogOut, Download, Sparkles, Key, Lock, FolderPlus, KeyRound, ChevronRight, ChevronDown, Home, Folder as FolderIcon, User, Menu, X } from 'lucide-react';
+import { Search, Plus, Shield, LogOut, Download, Sparkles, Key, Lock, FolderPlus, KeyRound, ChevronRight, ChevronDown, Home, Folder as FolderIcon, User, Menu, X, Activity } from 'lucide-react';
 import {
   getFolderFullPath,
   getFolderAndSubfolderIds,
@@ -43,6 +44,34 @@ export default function VaultLayout({
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Diagnóstico de Saúde do Cofre (Vault Health Check)
+  const healthStats = useMemo(() => {
+    let weakCount = 0;
+    const passwordMap: Record<string, number> = {};
+
+    vaultData.credentials.forEach((c) => {
+      if (c.password) {
+        const strength = evaluatePasswordStrength(c.password);
+        if (strength.score < 70) weakCount++;
+        passwordMap[c.password] = (passwordMap[c.password] || 0) + 1;
+      }
+    });
+
+    const reusedCount = Object.values(passwordMap)
+      .filter((count) => count > 1)
+      .reduce((acc, count) => acc + count, 0);
+
+    const total = vaultData.credentials.length;
+    const healthScore = total === 0 ? 100 : Math.max(0, Math.round(100 - (weakCount * 15 + reusedCount * 20)));
+
+    return {
+      total,
+      weakCount,
+      reusedCount,
+      healthScore,
+    };
+  }, [vaultData.credentials]);
 
   // Modal de confirmação personalizado da UI
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -309,6 +338,49 @@ export default function VaultLayout({
 
         {/* Header Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Indicador de Saúde do Cofre (Pill) */}
+          <div
+            className="hide-mobile-text"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-full)',
+              padding: '0.35rem 0.85rem',
+              height: '38px',
+              fontSize: '0.78rem',
+            }}
+            title={`Saúde do Cofre: ${healthStats.healthScore}%. ${healthStats.weakCount} senhas fracas, ${healthStats.reusedCount} reutilizadas.`}
+          >
+            <Activity
+              size={14}
+              style={{
+                color:
+                  healthStats.healthScore >= 80
+                    ? 'var(--accent-emerald)'
+                    : healthStats.healthScore >= 50
+                    ? 'var(--accent-amber)'
+                    : 'var(--color-danger)',
+              }}
+            />
+            <span style={{ color: 'var(--text-muted)' }}>Cofre:</span>
+            <span
+              style={{
+                fontWeight: 700,
+                color:
+                  healthStats.healthScore >= 80
+                    ? 'var(--accent-emerald)'
+                    : healthStats.healthScore >= 50
+                    ? 'var(--accent-amber)'
+                    : 'var(--color-danger)',
+              }}
+            >
+              {healthStats.healthScore}%
+            </span>
+          </div>
+
           {/* Gerador em formato Pill com Destaque Gradiente */}
           <button
             type="button"
