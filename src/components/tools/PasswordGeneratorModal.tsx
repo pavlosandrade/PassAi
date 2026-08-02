@@ -47,117 +47,121 @@ export default function PasswordGeneratorModal({ onClose }: PasswordGeneratorMod
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 100 }}>
-      <div className="glass-panel animate-fade-in" style={{ maxWidth: '480px', width: '100%', padding: '2rem', position: 'relative' }}>
+      <div className="glass-panel animate-fade-in" style={{ maxWidth: '480px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
         
-        {/* Close */}
-        <button
-          onClick={onClose}
-          style={{ position: 'absolute', right: '1.25rem', top: '1.25rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-        >
-          <X size={20} />
-        </button>
+        {/* STICKY HEADER */}
+        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', flexShrink: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ padding: '0.5rem', background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)' }}>
+              <Sparkles size={20} style={{ color: 'var(--accent-cyan)' }} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Gerador de Senhas Seguras</h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Criação com alta entropia criptográfica</span>
+            </div>
+          </div>
 
-        {/* Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
-          <div style={{ padding: '0.6rem', background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)' }}>
-            <Sparkles size={22} style={{ color: 'var(--accent-cyan)' }} />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Gerador de Senhas Seguras</h2>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Criação com alta entropia criptográfica</span>
-          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        {/* Password Display Box */}
-        <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', border: '1px solid var(--border-glow)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <span className="font-mono" style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--accent-cyan)', wordBreak: 'break-all', letterSpacing: '0.05em' }}>
-              {password}
-            </span>
-            
-            <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
-              <button
-                className="btn btn-secondary"
-                onClick={handleRegenerate}
-                style={{ padding: '0.45rem' }}
-                title="Gerar outra senha"
-              >
-                <RefreshCw size={16} />
-              </button>
+        {/* SCROLLABLE BODY */}
+        <div style={{ padding: '1.5rem 1.75rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Password Display Box */}
+          <div className="glass-card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', border: '1px solid var(--border-glow)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <span className="font-mono" style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--accent-cyan)', wordBreak: 'break-all', letterSpacing: '0.05em' }}>
+                {password}
+              </span>
               
-              <button
-                className="btn btn-primary"
-                onClick={handleCopy}
-                style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? 'Copiado!' : 'Copiar'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleRegenerate}
+                  style={{ padding: '0.45rem' }}
+                  title="Gerar outra senha"
+                >
+                  <RefreshCw size={16} />
+                </button>
+                
+                <button
+                  className="btn btn-primary"
+                  onClick={handleCopy}
+                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Strength bar */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Diagnóstico de Força:</span>
+                <span style={{ color: strength.color, fontWeight: 600 }}>{strength.label}</span>
+              </div>
+              <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${strength.score}%`, background: strength.color, transition: 'all 0.3s ease' }} />
+              </div>
             </div>
           </div>
 
-          {/* Strength bar */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.2rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Diagnóstico de Força:</span>
-              <span style={{ color: strength.color, fontWeight: 600 }}>{strength.label}</span>
+          {/* Options */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            
+            {/* Length Slider */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                <span>Tamanho da Senha:</span>
+                <span className="font-mono" style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>{length} caracteres</span>
+              </div>
+              <input
+                type="range"
+                min={8}
+                max={64}
+                value={length}
+                onChange={(e) => { setLength(Number(e.target.value)); handleRegenerate(); }}
+                style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+              />
             </div>
-            <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${strength.score}%`, background: strength.color, transition: 'all 0.3s ease' }} />
+
+            {/* Character Toggles */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.82rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={useUppercase} onChange={(e) => { setUseUppercase(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
+                Maiúsculas (A-Z)
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={useLowercase} onChange={(e) => { setUseLowercase(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
+                Minúsculas (a-z)
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={useNumbers} onChange={(e) => { setUseNumbers(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
+                Números (0-9)
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={useSymbols} onChange={(e) => { setUseSymbols(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
+                Símbolos (!@#$)
+              </label>
             </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              <input type="checkbox" checked={avoidSimilar} onChange={(e) => { setAvoidSimilar(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
+              Evitar caracteres ambíguos (I, l, 1, O, 0)
+            </label>
           </div>
         </div>
 
-        {/* Options */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          {/* Length Slider */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
-              <span>Tamanho da Senha:</span>
-              <span className="font-mono" style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>{length} caracteres</span>
-            </div>
-            <input
-              type="range"
-              min={8}
-              max={64}
-              value={length}
-              onChange={(e) => { setLength(Number(e.target.value)); handleRegenerate(); }}
-              style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-            />
-          </div>
-
-          {/* Character Toggles */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.82rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={useUppercase} onChange={(e) => { setUseUppercase(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
-              Maiúsculas (A-Z)
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={useLowercase} onChange={(e) => { setUseLowercase(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
-              Minúsculas (a-z)
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={useNumbers} onChange={(e) => { setUseNumbers(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
-              Números (0-9)
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={useSymbols} onChange={(e) => { setUseSymbols(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
-              Símbolos (!@#$)
-            </label>
-          </div>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            <input type="checkbox" checked={avoidSimilar} onChange={(e) => { setAvoidSimilar(e.target.checked); handleRegenerate(); }} style={{ accentColor: 'var(--accent-cyan)' }} />
-            Evitar caracteres ambíguos (I, l, 1, O, 0)
-          </label>
-        </div>
-
-        {/* Footer info */}
-        <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'flex-end' }}>
+        {/* STICKY FOOTER */}
+        <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid var(--border-light)', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, zIndex: 10 }}>
           <button className="btn btn-secondary" onClick={onClose}>
             Fechar
           </button>

@@ -7,7 +7,7 @@ import { UserProfile } from '@/types/vault';
 interface RecoveryScreenProps {
   userProfile?: UserProfile;
   onResetWithNewMasterPassword: (newMasterPassword: string) => Promise<void>;
-  onRestoreBackup: (file: File) => Promise<void>;
+  onRestoreBackup: (file: File, masterPassword?: string) => Promise<{ success: boolean; email?: string; message?: string } | void>;
   onNavigateToLogin: () => void;
 }
 
@@ -25,6 +25,7 @@ export default function RecoveryScreen({
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmittingKey, setIsSubmittingKey] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
 
   // Status e Erros
   const [error, setError] = useState('');
@@ -34,6 +35,9 @@ export default function RecoveryScreen({
     e.preventDefault();
     setError('');
     setSuccess('');
+    setInvalidFields({});
+
+    const newInvalid: Record<string, boolean> = {};
 
     // Se o perfil tiver recoveryKey salva, valida contra ela
     if (userProfile?.recoveryKey) {
@@ -41,21 +45,29 @@ export default function RecoveryScreen({
       const cleanStored = userProfile.recoveryKey.trim().toUpperCase();
 
       if (cleanInput !== cleanStored) {
+        newInvalid.recoveryKey = true;
         setError('Chave de Recuperação incorreta. Verifique os caracteres.');
+        setInvalidFields(newInvalid);
         return;
       }
     } else if (inputRecoveryKey.trim().length < 8) {
+      newInvalid.recoveryKey = true;
       setError('Formato de Chave de Recuperação inválido.');
+      setInvalidFields(newInvalid);
       return;
     }
 
     if (newPassword.length < 8) {
+      newInvalid.newPassword = true;
       setError('A nova Senha Mestra deve possuir no mínimo 8 caracteres.');
+      setInvalidFields(newInvalid);
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
+      newInvalid.confirmNewPassword = true;
       setError('As senhas não coincidem.');
+      setInvalidFields(newInvalid);
       return;
     }
 
@@ -82,11 +94,11 @@ export default function RecoveryScreen({
     setSuccess('');
 
     try {
-      await onRestoreBackup(file);
-      setSuccess('Cofre restaurado a partir do backup! Redirecionando...');
+      const res = await onRestoreBackup(file);
+      setSuccess(res?.message || 'Cofre restaurado a partir do backup! Redirecionando...');
       setTimeout(() => {
         onNavigateToLogin();
-      }, 1200);
+      }, 1500);
     } catch (err: any) {
       setError(err.message || 'Erro ao importar arquivo de backup.');
     }
@@ -156,22 +168,22 @@ export default function RecoveryScreen({
 
         {/* Notifications */}
         {error && (
-          <div style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+          <div className="animate-fade-in" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
             <AlertCircle size={18} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div style={{ padding: '0.75rem 1rem', background: 'rgba(0, 245, 160, 0.15)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-emerald)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+          <div className="animate-fade-in" style={{ padding: '0.75rem 1rem', background: 'rgba(0, 245, 160, 0.15)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-emerald)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
             <Check size={18} />
             <span>{success}</span>
           </div>
         )}
 
-        {/* TAB 1: Chave de Recuperação */}
+        {/* TAB 1: Chave de Recuperação with noValidate */}
         {activeTab === 'key' && (
-          <form onSubmit={handleRecoveryKeySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form noValidate onSubmit={handleRecoveryKeySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
                 Chave de Recuperação de Emergência
@@ -181,8 +193,14 @@ export default function RecoveryScreen({
                 className="input-field font-mono"
                 placeholder="PASS-XXXX-XXXX-XXXX-XXXX"
                 value={inputRecoveryKey}
-                onChange={(e) => setInputRecoveryKey(e.target.value)}
-                required
+                onChange={(e) => {
+                  setInputRecoveryKey(e.target.value);
+                  if (invalidFields.recoveryKey) setInvalidFields((prev) => ({ ...prev, recoveryKey: false }));
+                }}
+                style={{
+                  borderColor: invalidFields.recoveryKey ? 'var(--color-danger)' : undefined,
+                  boxShadow: invalidFields.recoveryKey ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                }}
                 autoFocus
               />
             </div>
@@ -197,8 +215,14 @@ export default function RecoveryScreen({
                   className="input-field font-mono"
                   placeholder="Mínimo 8 caracteres..."
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (invalidFields.newPassword) setInvalidFields((prev) => ({ ...prev, newPassword: false }));
+                  }}
+                  style={{
+                    borderColor: invalidFields.newPassword ? 'var(--color-danger)' : undefined,
+                    boxShadow: invalidFields.newPassword ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                  }}
                 />
                 <button
                   type="button"
@@ -219,8 +243,14 @@ export default function RecoveryScreen({
                 className="input-field font-mono"
                 placeholder="Repita a nova senha..."
                 value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                required
+                onChange={(e) => {
+                  setConfirmNewPassword(e.target.value);
+                  if (invalidFields.confirmNewPassword) setInvalidFields((prev) => ({ ...prev, confirmNewPassword: false }));
+                }}
+                style={{
+                  borderColor: invalidFields.confirmNewPassword ? 'var(--color-danger)' : undefined,
+                  boxShadow: invalidFields.confirmNewPassword ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                }}
               />
             </div>
 

@@ -1,28 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Lock, Eye, EyeOff, User, Mail, HelpCircle, ArrowRight, KeyRound, Copy, Check, LogIn } from 'lucide-react';
+import { Shield, Lock, Eye, EyeOff, User, Mail, HelpCircle, ArrowRight, KeyRound, Copy, Check, LogIn, AlertCircle } from 'lucide-react';
 import { evaluatePasswordStrength, generatePassword } from '@/utils/passwordGen';
 import { copyToClipboard } from '@/utils/clipboard';
 import { userVaultExists } from '@/services/storageService';
+import { UserProfile } from '@/types/vault';
 
 interface RegisterScreenProps {
+  initialProfile?: UserProfile;
   onRegisterComplete: (name: string, email: string, masterPassword: string, passwordHint?: string, recoveryKey?: string) => void;
   onNavigateToLogin: () => void;
 }
 
-export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }: RegisterScreenProps) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+export default function RegisterScreen({ initialProfile, onRegisterComplete, onNavigateToLogin }: RegisterScreenProps) {
+  const [name, setName] = useState(initialProfile?.name || '');
+  const [email, setEmail] = useState(initialProfile?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordHint, setPasswordHint] = useState('');
+  const [passwordHint, setPasswordHint] = useState(initialProfile?.passwordHint || '');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
 
   // Chave de recuperação de emergência gerada no cadastro
   const [generatedRecoveryKey] = useState(() => {
+    if (initialProfile?.recoveryKey) {
+      return initialProfile.recoveryKey;
+    }
     const raw = generatePassword({ length: 16, useUppercase: true, useLowercase: false, useNumbers: true, useSymbols: false });
     return `PASS-${raw.substring(0, 4)}-${raw.substring(4, 8)}-${raw.substring(8, 12)}-${raw.substring(12, 16)}`;
   });
@@ -42,24 +48,35 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInvalidFields({});
+
+    const newInvalid: Record<string, boolean> = {};
 
     if (!name.trim()) {
+      newInvalid.name = true;
       setError('Por favor, informe seu nome.');
+      setInvalidFields(newInvalid);
       return;
     }
 
     if (!email.trim() || !email.includes('@')) {
+      newInvalid.email = true;
       setError('Por favor, informe um e-mail válido.');
+      setInvalidFields(newInvalid);
       return;
     }
 
     if (password.length < 8) {
+      newInvalid.password = true;
       setError('A Senha Mestra deve possuir no mínimo 8 caracteres.');
+      setInvalidFields(newInvalid);
       return;
     }
 
     if (password !== confirmPassword) {
+      newInvalid.confirmPassword = true;
       setError('As senhas não coincidem. Digite novamente.');
+      setInvalidFields(newInvalid);
       return;
     }
 
@@ -69,6 +86,7 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
       // Verifica se o e-mail já existe nesta máquina
       const exists = await userVaultExists(email.trim());
       if (exists) {
+        setInvalidFields({ email: true });
         setError('Já existe um cofre cadastrado para este e-mail neste dispositivo. Faça login ou use outro e-mail.');
         setIsSubmitting(false);
         return;
@@ -99,11 +117,12 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+        {/* Form with noValidate to disable native browser tooltips */}
+        <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
           {error && (
-            <div style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem' }}>
-              {error}
+            <div className="animate-fade-in" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle style={{ width: '18px', height: '18px', color: 'var(--color-danger)', flexShrink: 0 }} />
+              <span>{error}</span>
             </div>
           )}
 
@@ -120,9 +139,15 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
                   className="input-field"
                   placeholder="ex: Carlos Silva"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={{ paddingLeft: '2.2rem' }}
-                  required
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (invalidFields.name) setInvalidFields((prev) => ({ ...prev, name: false }));
+                  }}
+                  style={{
+                    paddingLeft: '2.2rem',
+                    borderColor: invalidFields.name ? 'var(--color-danger)' : undefined,
+                    boxShadow: invalidFields.name ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                  }}
                   autoFocus
                 />
               </div>
@@ -139,9 +164,15 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
                   className="input-field"
                   placeholder="seu@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ paddingLeft: '2.2rem' }}
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (invalidFields.email) setInvalidFields((prev) => ({ ...prev, email: false }));
+                  }}
+                  style={{
+                    paddingLeft: '2.2rem',
+                    borderColor: invalidFields.email ? 'var(--color-danger)' : undefined,
+                    boxShadow: invalidFields.email ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                  }}
                 />
               </div>
             </div>
@@ -159,9 +190,16 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
                 className="input-field font-mono"
                 placeholder="No mínimo 8 caracteres..."
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '2.2rem', paddingRight: '2.5rem' }}
-                required
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (invalidFields.password) setInvalidFields((prev) => ({ ...prev, password: false }));
+                }}
+                style={{
+                  paddingLeft: '2.2rem',
+                  paddingRight: '2.5rem',
+                  borderColor: invalidFields.password ? 'var(--color-danger)' : undefined,
+                  boxShadow: invalidFields.password ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                }}
               />
               <button
                 type="button"
@@ -195,8 +233,14 @@ export default function RegisterScreen({ onRegisterComplete, onNavigateToLogin }
               className="input-field font-mono"
               placeholder="Repita a senha mestra..."
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (invalidFields.confirmPassword) setInvalidFields((prev) => ({ ...prev, confirmPassword: false }));
+              }}
+              style={{
+                borderColor: invalidFields.confirmPassword ? 'var(--color-danger)' : undefined,
+                boxShadow: invalidFields.confirmPassword ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+              }}
             />
           </div>
 

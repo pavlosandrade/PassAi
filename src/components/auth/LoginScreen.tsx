@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check } from 'lucide-react';
 import { UserProfile } from '@/types/vault';
 
 interface LoginScreenProps {
@@ -9,7 +9,7 @@ interface LoginScreenProps {
   onLogin: (email: string, masterPassword: string) => Promise<boolean>;
   onNavigateToRegister: () => void;
   onNavigateToRecovery: () => void;
-  onRestoreBackup: (file: File) => Promise<void>;
+  onRestoreBackup: (file: File) => Promise<{ success: boolean; email?: string; message?: string } | void>;
 }
 
 export default function LoginScreen({
@@ -23,13 +23,28 @@ export default function LoginScreen({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (userProfile?.email && !email) {
+      setEmail(userProfile.email);
+    }
+  }, [userProfile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setInvalidFields({});
 
-    if (!email.trim() || !password) {
+    const newInvalid: Record<string, boolean> = {};
+    if (!email.trim()) newInvalid.email = true;
+    if (!password) newInvalid.password = true;
+
+    if (Object.keys(newInvalid).length > 0) {
+      setInvalidFields(newInvalid);
       setError('Por favor, preencha o E-mail e a Senha Mestra.');
       return;
     }
@@ -37,9 +52,10 @@ export default function LoginScreen({
     setIsSubmitting(true);
 
     try {
-      const success = await onLogin(email.trim(), password);
-      if (!success) {
+      const isOk = await onLogin(email.trim(), password);
+      if (!isOk) {
         setError('E-mail ou Senha Mestra incorretos.');
+        setInvalidFields({ password: true });
       }
     } catch {
       setError('Erro ao descriptografar o cofre. Verifique suas credenciais.');
@@ -52,8 +68,19 @@ export default function LoginScreen({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError('');
+    setSuccess('');
+    setPassword('');
+    setInvalidFields({});
+
     try {
-      await onRestoreBackup(file);
+      const res = await onRestoreBackup(file);
+      if (res?.message) {
+        setSuccess(res.message);
+      }
+      if (res?.email) {
+        setEmail(res.email);
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao importar arquivo de backup.');
     }
@@ -76,12 +103,19 @@ export default function LoginScreen({
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Form with noValidate to disable native browser tooltips */}
+        <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {error && (
-            <div style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="animate-fade-in" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 42, 109, 0.15)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <AlertCircle style={{ width: '18px', height: '18px', color: 'var(--color-danger)', flexShrink: 0 }} />
               <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="animate-fade-in" style={{ padding: '0.75rem 1rem', background: 'rgba(0, 245, 160, 0.15)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-emerald)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Check style={{ width: '18px', height: '18px', color: 'var(--accent-emerald)', flexShrink: 0 }} />
+              <span>{success}</span>
             </div>
           )}
 
@@ -98,9 +132,15 @@ export default function LoginScreen({
                 className="input-field"
                 placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ paddingLeft: '2.2rem' }}
-                required
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (invalidFields.email) setInvalidFields((prev) => ({ ...prev, email: false }));
+                }}
+                style={{
+                  paddingLeft: '2.2rem',
+                  borderColor: invalidFields.email ? 'var(--color-danger)' : undefined,
+                  boxShadow: invalidFields.email ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                }}
                 autoFocus={!email}
               />
             </div>
@@ -130,9 +170,16 @@ export default function LoginScreen({
                 className="input-field font-mono"
                 placeholder="Digite sua senha mestra..."
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '2.2rem', paddingRight: '2.5rem' }}
-                required
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (invalidFields.password) setInvalidFields((prev) => ({ ...prev, password: false }));
+                }}
+                style={{
+                  paddingLeft: '2.2rem',
+                  paddingRight: '2.5rem',
+                  borderColor: invalidFields.password ? 'var(--color-danger)' : undefined,
+                  boxShadow: invalidFields.password ? '0 0 10px rgba(255, 42, 109, 0.3)' : undefined,
+                }}
                 autoFocus={!!email}
               />
               <button
