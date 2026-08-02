@@ -161,6 +161,31 @@ body {
   color: var(--text-muted);
 }
 
+/* Custom Styled Select Inputs */
+select.input-field {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding-right: 2.5rem;
+  background-color: var(--bg-input);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300f2fe' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1.1rem;
+}
+
+select.input-field option {
+  background-color: #0d121d;
+  color: #f8fafc;
+  padding: 0.65rem 1rem;
+  font-size: 0.92rem;
+}
+
+select.input-field option:disabled {
+  color: var(--text-muted);
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -217,15 +242,26 @@ body {
   box-shadow: 0 0 20px rgba(255, 42, 109, 0.5);
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Skeleton Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(0, 242, 254, 0.08) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
 }
 
 .animate-fade-in {
@@ -234,4 +270,141 @@ body {
 
 .animate-glow {
   animation: pulseGlow 3s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   MOBILE FIRST RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+
+/* Defaults for Desktop */
+.mobile-menu-toggle {
+  display: none;
+}
+
+.mobile-sidebar-backdrop {
+  display: none;
+}
+
+.vault-sidebar {
+  width: 270px;
+  flex-shrink: 0;
+}
+
+.vault-main-container {
+  flex: 1;
+  display: flex;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+/* Defaults for Grids */
+.folders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1rem;
+}
+
+.credentials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Mobile Screens (max-width: 768px) */
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex !important;
+  }
+
+  .hide-mobile-text {
+    display: none !important;
+  }
+
+  .vault-main-container {
+    padding: 1rem !important;
+    gap: 1rem !important;
+    flex-direction: column !important;
+  }
+
+  .mobile-sidebar-backdrop {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 90;
+  }
+
+  .vault-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 285px;
+    max-width: 85vw;
+    z-index: 95;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(13, 18, 29, 0.98);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.8);
+    padding: 1rem 0.75rem;
+    overflow-y: auto;
+  }
+
+  .vault-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* Compact Navbar Padding on Mobile */
+  header.glass-panel {
+    padding: 0.75rem 1rem !important;
+  }
+
+  /* Body Toolbar Mobile Layout */
+  .body-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .body-toolbar-search {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .body-toolbar-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  .body-toolbar-actions button {
+    justify-content: center !important;
+    padding: 0.65rem 0.5rem !important;
+    font-size: 0.8rem !important;
+    width: 100% !important;
+  }
+
+  /* 1 Column Grids on Mobile */
+  .folders-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .credentials-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+}
+
+/* Extra Small Screens (max-width: 480px) */
+@media (max-width: 480px) {
+  /* Modals padding on small mobile */
+  .glass-panel {
+    padding: 1rem 0.85rem !important;
+  }
 }

@@ -6,10 +6,13 @@ import RegisterScreen from '@/components/auth/RegisterScreen';
 import RecoveryScreen from '@/components/auth/RecoveryScreen';
 import InactivityGuard from '@/components/auth/InactivityGuard';
 import VaultLayout from '@/components/vault/VaultLayout';
+import VaultSkeletonLoader from '@/components/vault/VaultSkeletonLoader';
 import {
   saveEncryptedVaultForUser,
   loadEncryptedVaultForUser,
   getRegisteredAccountsList,
+  registerAccountProfile,
+  getAccountProfile,
 } from '@/services/storageService';
 import { deriveKeyFromPassword } from '@/crypto/pbkdf2';
 import { encryptData, decryptData } from '@/crypto/cipher';
@@ -67,6 +70,7 @@ export default function Home() {
     
     // Salva o cofre de forma isolada usando o e-mail do usuário como chave
     await saveEncryptedVaultForUser(cleanEmail, encrypted, name);
+    await registerAccountProfile(userProfile);
 
     setActiveMasterPassword(masterPassword);
     setVaultData(initialVault);
@@ -77,8 +81,31 @@ export default function Home() {
   // 2. Login no Cofre Isolado do Usuário (por E-mail + Senha Mestra)
   const handleLogin = async (email: string, masterPassword: string): Promise<boolean> => {
     const cleanEmail = email.trim().toLowerCase();
-    const encrypted = await loadEncryptedVaultForUser(cleanEmail);
-    if (!encrypted) return false; // Nenhuma conta com esse e-mail na máquina
+    let encrypted = await loadEncryptedVaultForUser(cleanEmail);
+
+    // Se ainda não existir um payload criptografado, verifica se a conta foi restaurada via Arquivo de Conta
+    if (!encrypted) {
+      const savedProfile = (await getAccountProfile(cleanEmail)) || cachedUserProfile;
+      if (savedProfile && savedProfile.email.toLowerCase() === cleanEmail) {
+        // Inicializa o cofre com o perfil existente e criptografa com a senha fornecida
+        const initialVault: VaultData = {
+          version: '1.0.0',
+          userProfile: savedProfile,
+          folders: DEFAULT_FOLDERS,
+          credentials: [],
+        };
+        const { key, salt } = await deriveKeyFromPassword(masterPassword);
+        encrypted = await encryptData(initialVault, key, salt);
+        await saveEncryptedVaultForUser(cleanEmail, encrypted, savedProfile.name);
+
+        setActiveMasterPassword(masterPassword);
+        setVaultData(initialVault);
+        setCachedUserProfile(savedProfile);
+        setAuthStage('unlocked');
+        return true;
+      }
+      return false; // Nenhuma conta com esse e-mail na máquina
+    }
 
     try {
       const { key } = await deriveKeyFromPassword(masterPassword, encrypted.salt);
@@ -137,39 +164,118 @@ export default function Home() {
   };
 
   // 6. Restauração de Backup (Suporte a Arquivo de Conta e Arquivo de Cofre)
-  const handleRestoreBackup = async (file: File) => {
-    const result = await importBackupFile(file, activeMasterPassword || undefined);
+  const handleRestoreBackup = async (
+    file: File,
+    providedMasterPassword?: string
+  ): Promise<{ success: boolean; email?: string; message?: string }> => {
+    const passwordToUse = providedMasterPassword || activeMasterPassword || undefined;
+    const result = await importBackupFile(file, passwordToUse);
 
+    // Caso A: Arquivo de Perfil de Conta -> Registra/Cria a conta imediatamente no dispositivo
     if (result.type === 'account_profile' && result.userProfile) {
+      await registerAccountProfile(result.userProfile);
       setCachedUserProfile(result.userProfile);
-    } else if (result.vaultData) {
-      setVaultData(result.vaultData);
-      if (result.vaultData.userProfile) {
-        setCachedUserProfile(result.vaultData.userProfile);
+
+      if (passwordToUse) {
+        const initialVault: VaultData = {
+          version: '1.0.0',
+          userProfile: result.userProfile,
+          folders: DEFAULT_FOLDERS,
+          credentials: [],
+        };
+        const { key, salt } = await deriveKeyFromPassword(passwordToUse);
+        const encrypted = await encryptData(initialVault, key, salt);
+        await saveEncryptedVaultForUser(result.userProfile.email, encrypted, result.userProfile.name);
+
+        setActiveMasterPassword(passwordToUse);
+        setVaultData(initialVault);
+        setAuthStage('unlocked');
+        return {
+          success: true,
+          email: result.userProfile.email,
+          message: `Conta de ${result.userProfile.name} restaurada e cofre desbloqueado com sucesso!`,
+        };
       }
-      if (activeMasterPassword && result.vaultData.userProfile?.email) {
-        const { key, salt } = await deriveKeyFromPassword(activeMasterPassword);
-        const encrypted = await encryptData(result.vaultData, key, salt);
-        await saveEncryptedVaultForUser(result.vaultData.userProfile.email, encrypted, result.vaultData.userProfile.name);
+
+      setAuthView('login');
+      return {
+        success: true,
+        email: result.userProfile.email,
+        message: `Conta de ${result.userProfile.name} (${result.userProfile.email}) restaurada no dispositivo com sucesso! Digite sua Senha Mestra para entrar.`,
+      };
+    }
+
+    if (result.type === 'vault_backup') {
+      // 1. Backup Criptografado
+      if (result.isEncrypted && result.encryptedPayload && result.userProfile?.email) {
+        await saveEncryptedVaultForUser(
+          result.userProfile.email,
+          result.encryptedPayload,
+          result.userProfile.name || 'Usuário'
+        );
+        await registerAccountProfile(result.userProfile);
+        setCachedUserProfile(result.userProfile);
+
+        if (result.vaultData && passwordToUse) {
+          setActiveMasterPassword(passwordToUse);
+          setVaultData(result.vaultData);
+          setAuthStage('unlocked');
+          return {
+            success: true,
+            email: result.userProfile.email,
+            message: 'Cofre restaurado e desbloqueado com sucesso!',
+          };
+        } else {
+          setAuthView('login');
+          return {
+            success: true,
+            email: result.userProfile.email,
+            message: `Cofre de ${result.userProfile.name} (${result.userProfile.email}) restaurado no dispositivo com sucesso! Digite sua Senha Mestra para entrar.`,
+          };
+        }
+      }
+      // 2. Backup em Texto Plano
+      else if (!result.isEncrypted && result.vaultData) {
+        const profile = result.vaultData.userProfile;
+        if (!profile?.email) {
+          throw new Error('O backup em texto plano não possui um e-mail válido de perfil.');
+        }
+
+        if (passwordToUse) {
+          const { key, salt } = await deriveKeyFromPassword(passwordToUse);
+          const encrypted = await encryptData(result.vaultData, key, salt);
+          await saveEncryptedVaultForUser(profile.email, encrypted, profile.name || 'Usuário');
+          await registerAccountProfile(profile);
+
+          setActiveMasterPassword(passwordToUse);
+          setVaultData(result.vaultData);
+          setCachedUserProfile(profile);
+          setAuthStage('unlocked');
+          return {
+            success: true,
+            email: profile.email,
+            message: 'Cofre em texto plano importado, criptografado e salvo com sucesso!',
+          };
+        } else {
+          setVaultData(result.vaultData);
+          setCachedUserProfile(profile);
+          throw new Error('Para importar um backup em texto plano no dispositivo, digite sua Senha Mestra no campo antes de restaurar.');
+        }
       }
     }
+
+    throw new Error('Não foi possível processar o arquivo de backup.');
   };
 
   if (authStage === 'loading') {
-    return (
-      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--accent-cyan)', fontSize: '1.1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Sparkles style={{ width: '24px', height: '24px', animation: 'spin 2s linear infinite' }} />
-          Carregando PassAi...
-        </div>
-      </main>
-    );
+    return <VaultSkeletonLoader />;
   }
 
   if (authStage === 'auth') {
     if (authView === 'register') {
       return (
         <RegisterScreen
+          initialProfile={cachedUserProfile}
           onRegisterComplete={handleRegisterComplete}
           onNavigateToLogin={() => setAuthView('login')}
         />

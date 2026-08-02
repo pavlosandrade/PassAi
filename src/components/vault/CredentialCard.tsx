@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Credential } from '@/types/vault';
-import { Eye, EyeOff, Copy, Check, Star, ExternalLink, Edit3, Trash2, ShieldCheck, Lock } from 'lucide-react';
+import { Credential, CustomField, CustomFieldType } from '@/types/vault';
+import { Eye, EyeOff, Copy, Check, Star, ExternalLink, Edit3, Trash2, Lock, Mail, User, FileText, Phone, MapPin, Clock } from 'lucide-react';
 import { copyToClipboard } from '@/utils/clipboard';
 
 interface CredentialCardProps {
@@ -16,6 +16,14 @@ interface CredentialCardProps {
   onRequestPinUnlock?: () => void;
 }
 
+const FIELD_ICONS: Record<CustomFieldType, { icon: any; color?: string }> = {
+  email: { icon: Mail, color: 'var(--text-muted)' },
+  username: { icon: User, color: 'var(--text-muted)' },
+  document: { icon: FileText, color: 'var(--accent-amber)' },
+  phone: { icon: Phone, color: 'var(--accent-emerald)' },
+  address: { icon: MapPin, color: 'var(--accent-blue)' },
+};
+
 export default function CredentialCard({
   credential,
   folderName,
@@ -27,8 +35,16 @@ export default function CredentialCard({
   onRequestPinUnlock,
 }: CredentialCardProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null);
+  const [copiedFieldId, setCopiedFieldId] = useState<string | null>(null);
   const [clearTimerSeconds, setClearTimerSeconds] = useState<number | null>(null);
+
+  const handleCopyValue = async (value: string, fieldId: string) => {
+    const success = await copyToClipboard(value, { autoClearSeconds: 0 });
+    if (success) {
+      setCopiedFieldId(fieldId);
+      setTimeout(() => setCopiedFieldId(null), 2000);
+    }
+  };
 
   const handleCopyPassword = async () => {
     if (isFolderProtected && !isUnlockedByPin && onRequestPinUnlock) {
@@ -42,10 +58,9 @@ export default function CredentialCard({
     });
 
     if (success) {
-      setCopiedField('password');
+      setCopiedFieldId('password');
       setClearTimerSeconds(15);
 
-      // Regressão simples para feedback visual do timer
       const interval = setInterval(() => {
         setClearTimerSeconds((prev) => {
           if (prev === null || prev <= 1) {
@@ -56,19 +71,43 @@ export default function CredentialCard({
         });
       }, 1000);
 
-      setTimeout(() => setCopiedField(null), 2000);
-    }
-  };
-
-  const handleCopyUsername = async () => {
-    const success = await copyToClipboard(credential.username, { autoClearSeconds: 0 });
-    if (success) {
-      setCopiedField('username');
-      setTimeout(() => setCopiedField(null), 2000);
+      setTimeout(() => setCopiedFieldId(null), 2000);
     }
   };
 
   const isMaskedByPin = isFolderProtected && !isUnlockedByPin;
+
+  // Compila a lista de campos a serem exibidos (suporta customFields e legado)
+  const displayFields: { id: string; type: CustomFieldType; label: string; value: string }[] = [];
+
+  if (credential.customFields && credential.customFields.length > 0) {
+    credential.customFields.forEach((cf) => {
+      if (cf.value && cf.value.trim()) {
+        displayFields.push({
+          id: cf.id,
+          type: cf.type || 'email',
+          label: cf.label || 'Campo',
+          value: cf.value.trim(),
+        });
+      }
+    });
+  } else {
+    // Fallback legado
+    if (credential.email) {
+      displayFields.push({ id: 'legacy_email', type: 'email', label: 'E-mail', value: credential.email });
+    }
+    if (credential.username) {
+      const isEmail = credential.username.includes('@');
+      if (isEmail && !credential.email) {
+        displayFields.push({ id: 'legacy_username_email', type: 'email', label: 'E-mail', value: credential.username });
+      } else if (!isEmail) {
+        displayFields.push({ id: 'legacy_username', type: 'username', label: 'Nome de Usuário', value: credential.username });
+      }
+    }
+    if (credential.document) {
+      displayFields.push({ id: 'legacy_doc', type: 'document', label: 'CPF / CNPJ', value: credential.document });
+    }
+  }
 
   return (
     <div className="glass-card animate-fade-in" style={{ padding: '1.25rem', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -85,7 +124,7 @@ export default function CredentialCard({
                 href={credential.url.startsWith('http') ? credential.url : `https://${credential.url}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ color: 'var(--accent-blue)', display: 'inline-flex', alignItems: 'center' }}
+                style={{ color: 'var(--accent-cyan)', display: 'inline-flex', alignItems: 'center' }}
                 title="Abrir site"
               >
                 <ExternalLink size={14} />
@@ -125,38 +164,60 @@ export default function CredentialCard({
         </div>
       </div>
 
-      {/* Fields: Username & Password */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+      {/* Fields Container */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         
-        {/* Username Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
-          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Usuário / E-mail</span>
-            <span className="font-mono" style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{credential.username}</span>
-          </div>
-          <button
-            onClick={handleCopyUsername}
-            className="btn"
-            style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.06)' }}
-            title="Copiar usuário"
-          >
-            {copiedField === 'username' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
-          </button>
-        </div>
+        {/* Render Dynamic Fields (Email, Username, CPF/CNPJ, Phone, Address) */}
+        {displayFields.map((field) => {
+          const iconConfig = FIELD_ICONS[field.type] || FIELD_ICONS.email;
+          const IconComponent = iconConfig.icon;
+
+          return (
+            <div
+              key={field.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '0.45rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '0.5rem' }}>
+                <span style={{ fontSize: '0.68rem', color: iconConfig.color || 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <IconComponent size={11} /> {field.label}
+                </span>
+                <span className="font-mono" style={{ fontSize: '0.84rem', color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {field.value}
+                </span>
+              </div>
+
+              <button
+                onClick={() => handleCopyValue(field.value, field.id)}
+                className="btn"
+                style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}
+                title={`Copiar ${field.label}`}
+              >
+                {copiedFieldId === field.id ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
+              </button>
+            </div>
+          );
+        })}
 
         {/* Password Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
-          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '0.5rem' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               Senha
               {clearTimerSeconds !== null && (
-                <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                  ⏱️ Limpa em {clearTimerSeconds}s
+                <span style={{ color: 'var(--accent-cyan)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <Clock size={12} /> Limpa em {clearTimerSeconds}s
                 </span>
               )}
             </span>
 
-            <span className="font-mono" style={{ fontSize: '0.85rem', color: isMaskedByPin ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
+            <span className="font-mono" style={{ fontSize: '0.84rem', color: isMaskedByPin ? 'var(--accent-amber)' : 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {isMaskedByPin ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem' }}>
                   <Lock size={12} /> Bloqueada por PIN
@@ -169,29 +230,29 @@ export default function CredentialCard({
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.35rem' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
             {!isMaskedByPin && (
               <button
                 onClick={() => setShowPassword(!showPassword)}
                 className="btn"
-                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.06)' }}
+                style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.06)' }}
                 title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
               >
-                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             )}
 
             <button
               onClick={handleCopyPassword}
               className="btn btn-primary"
-              style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
+              style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
               title="Copiar senha (auto-limpeza em 15s)"
             >
-              {copiedField === 'password' ? (
-                <Check size={14} />
+              {copiedFieldId === 'password' ? (
+                <Check size={13} />
               ) : (
                 <>
-                  <Copy size={14} />
+                  <Copy size={13} />
                   Copiar
                 </>
               )}
