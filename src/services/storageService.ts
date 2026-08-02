@@ -1,4 +1,5 @@
 import { EncryptedPayload } from '@/types/crypto';
+import { UserProfile } from '@/types/vault';
 
 const INDEX_KEY = 'passai_accounts_index';
 const DB_NAME = 'PassAiDB';
@@ -199,6 +200,68 @@ export async function loadEncryptedVaultForUser(email: string): Promise<Encrypte
   if (localData) {
     try {
       return JSON.parse(localData) as EncryptedPayload;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Registra/atualiza os dados de perfil de uma conta no dispositivo.
+ */
+export async function registerAccountProfile(profile: UserProfile): Promise<void> {
+  if (typeof window === 'undefined' || !profile?.email) return;
+
+  const cleanEmail = profile.email.trim().toLowerCase();
+  const profileKey = `passai_profile_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+
+  // 1. Atualiza o índice de contas
+  await updateAccountsList(cleanEmail, profile.name || 'Usuário');
+
+  // 2. Salva o perfil completo em LocalStorage e IndexedDB
+  localStorage.setItem(profileKey, JSON.stringify(profile));
+
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.put(profile, profileKey);
+  } catch (err) {
+    console.warn('Erro ao salvar perfil no IndexedDB:', err);
+  }
+}
+
+/**
+ * Obtém o perfil cadastrado para um e-mail específico.
+ */
+export async function getAccountProfile(email: string): Promise<UserProfile | null> {
+  if (typeof window === 'undefined' || !email) return null;
+
+  const cleanEmail = email.trim().toLowerCase();
+  const profileKey = `passai_profile_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+
+  try {
+    const db = await openDB();
+    const profile = await new Promise<UserProfile | null>((resolve) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(profileKey);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+
+    if (profile) return profile;
+  } catch {
+    /* fallback */
+  }
+
+  const localData = localStorage.getItem(profileKey);
+  if (localData) {
+    try {
+      return JSON.parse(localData) as UserProfile;
     } catch {
       return null;
     }

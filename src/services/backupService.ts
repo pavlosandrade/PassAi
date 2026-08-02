@@ -14,6 +14,8 @@ export interface BackupImportResult {
   type: 'account_profile' | 'vault_backup';
   userProfile?: UserProfile;
   vaultData?: VaultData;
+  encryptedPayload?: EncryptedPayload;
+  isEncrypted?: boolean;
 }
 
 /**
@@ -31,12 +33,11 @@ export function exportAccountProfileBackup(userProfile: UserProfile): void {
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
 
-  const cleanEmail = userProfile.email.replace(/[^a-z0-9]/gi, '_');
   const dateStr = new Date().toISOString().split('T')[0];
 
   const a = document.createElement('a');
   a.href = url;
-  a.download = `PassAi_AccountProfile_${cleanEmail}_${dateStr}.json`;
+  a.download = `PassAi_AccountBackup_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -83,12 +84,11 @@ export async function exportVaultBackup(
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
 
-  const cleanEmail = vaultData.userProfile?.email ? vaultData.userProfile.email.replace(/[^a-z0-9]/gi, '_') : 'user';
   const dateStr = new Date().toISOString().split('T')[0];
 
   const a = document.createElement('a');
   a.href = url;
-  a.download = `PassAi_VaultBackup_${backupContent.isEncrypted ? 'Encrypted' : 'Plain'}_${cleanEmail}_${dateStr}.json`;
+  a.download = `PassAi_VaultBackup_${backupContent.isEncrypted ? 'Encrypted' : 'Plain'}_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -103,7 +103,12 @@ export async function importBackupFile(
   masterPassword?: string
 ): Promise<BackupImportResult> {
   const text = await file.text();
-  const json = JSON.parse(text);
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error('Arquivo de backup inválido (conteúdo não é um JSON válido).');
+  }
 
   // Caso A: Arquivo de Perfil de Conta
   if (json.type === 'account_profile' && json.userProfile) {
@@ -117,28 +122,41 @@ export async function importBackupFile(
   if (json.vault) {
     const backup: VaultBackup = json;
     if (backup.isEncrypted) {
-      if (!masterPassword) {
-        throw new Error('Este backup de cofre está criptografado e requer a Senha Mestra.');
-      }
-
       const { salt, iv, ciphertext } = backup.vault;
       if (!salt || !iv || !ciphertext) {
-        throw new Error('Dados criptografados ausentes no backup.');
+        throw new Error('Dados criptografados ausentes no arquivo de backup.');
       }
 
       const encryptedPayload: EncryptedPayload = { salt, iv, ciphertext };
-      const { key } = await deriveKeyFromPassword(masterPassword, salt);
-      const data = await decryptData<VaultData>(encryptedPayload, key);
 
-      if (backup.userProfile && !data.userProfile) {
-        data.userProfile = backup.userProfile;
+      if (masterPassword) {
+        try {
+          const { key } = await deriveKeyFromPassword(masterPassword, salt);
+          const data = await decryptData<VaultData>(encryptedPayload, key);
+
+          if (backup.userProfile && !data.userProfile) {
+            data.userProfile = backup.userProfile;
+          }
+
+          return {
+            type: 'vault_backup',
+            userProfile: data.userProfile || backup.userProfile,
+            vaultData: data,
+            encryptedPayload,
+            isEncrypted: true,
+          };
+        } catch {
+          throw new Error('Senha Mestra incorreta para este arquivo de backup.');
+        }
+      } else {
+        // Nenhuma senha fornecida. Retorna a carga criptografada e o perfil para persistência local.
+        return {
+          type: 'vault_backup',
+          userProfile: backup.userProfile,
+          encryptedPayload,
+          isEncrypted: true,
+        };
       }
-
-      return {
-        type: 'vault_backup',
-        userProfile: data.userProfile || backup.userProfile,
-        vaultData: data,
-      };
     } else {
       if (!backup.vault.data) {
         throw new Error('Dados do cofre em formato texto plano ausentes no arquivo.');
@@ -151,6 +169,7 @@ export async function importBackupFile(
         type: 'vault_backup',
         userProfile: data.userProfile || backup.userProfile,
         vaultData: data,
+        isEncrypted: false,
       };
     }
   }

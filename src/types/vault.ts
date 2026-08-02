@@ -10,15 +10,30 @@ export interface UserProfile {
 }
 
 /**
+ * Campo adicional dinâmico de identificação da credencial.
+ */
+export type CustomFieldType = 'email' | 'username' | 'document' | 'phone' | 'address';
+
+export interface CustomField {
+  id: string;
+  type: CustomFieldType;
+  label: string;
+  value: string;
+}
+
+/**
  * Estrutura de uma credencial/senha individual no cofre.
  */
 export interface Credential {
   id: string;
   title: string;
-  username: string;
-  password: string; // Descriptografado em memória durante sessão ativa
+  username?: string;        // Mantido para retrocompatibilidade
+  email?: string;           // Mantido para retrocompatibilidade
+  document?: string;        // Mantido para retrocompatibilidade
+  customFields?: CustomField[]; // Lista de campos dinâmicos (até 5 de cada tipo)
+  password: string;         // Descriptografado em memória durante sessão ativa
   url?: string;
-  folderId: string; // ID da pasta ou 'default'
+  folderId: string;         // ID da pasta
   notes?: string;
   isFavorite: boolean;
   createdAt: string;
@@ -26,14 +41,17 @@ export interface Credential {
 }
 
 /**
- * Estrutura de uma pasta organizadora de credenciais.
+ * Estrutura de uma pasta organizadora de credenciais (suporta hierarquia e subpastas).
  */
 export interface Folder {
   id: string;
   name: string;
-  icon: string;
-  color: string;
+  description?: string;
+  parentId?: string | null; // ID da pasta pai se for uma subpasta
+  icon?: string;
+  color?: string;
   isProtected: boolean; // Se true, credenciais nesta pasta exigem PIN secundário (2ª camada)
+  pin?: string; // PIN da pasta para verificação da 2ª camada
   createdAt: string;
 }
 
