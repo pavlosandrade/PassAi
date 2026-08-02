@@ -60,8 +60,9 @@ src/
 │   ├── page.tsx                # Ponto de entrada do cofre
 │   └── globals.css             # Estilos globais e tokens de design
 ├── components/                 # Componentes de interface (UI)
-│   ├── auth/                   # Autenticação por Senha Mestra
-│   ├── vault/                  # Navegação por pastas, cards e modais
+│   ├── auth/                   # Autenticação e Perfil do Usuário (Login, Cadastro, Recuperação, AccountProfileModal.tsx)
+│   ├── vault/                  # Navegação por pastas, cards, modais e Skeletons (VaultSkeletonLoader.tsx, CredentialCardSkeleton.tsx, FolderCardSkeleton.tsx)
+│   ├── ui/                     # Diálogos e modais padronizados da UI (ConfirmModal.tsx)
 │   ├── tools/                  # Gerador de senhas e auditoria
 │   └── backup/                 # Gerenciador de importação/exportação JSON
 ├── crypto/                     # Motor de criptografia pura
