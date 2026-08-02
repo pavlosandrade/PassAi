@@ -110,8 +110,16 @@ export async function importBackupFile(
     throw new Error('Arquivo de backup inválido (conteúdo não é um JSON válido).');
   }
 
+  // Valida se o conteúdo lido é um objeto válido
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+    throw new Error('Arquivo de backup inválido (estrutura não é um objeto JSON válido).');
+  }
+
   // Caso A: Arquivo de Perfil de Conta
-  if (json.type === 'account_profile' && json.userProfile) {
+  if (json.type === 'account_profile') {
+    if (!json.userProfile || typeof json.userProfile.email !== 'string' || !json.userProfile.email.trim()) {
+      throw new Error('Arquivo de perfil de conta corrompido ou sem e-mail válido.');
+    }
     return {
       type: 'account_profile',
       userProfile: json.userProfile,
@@ -158,8 +166,8 @@ export async function importBackupFile(
         };
       }
     } else {
-      if (!backup.vault.data) {
-        throw new Error('Dados do cofre em formato texto plano ausentes no arquivo.');
+      if (!backup.vault.data || !Array.isArray(backup.vault.data.credentials) || !Array.isArray(backup.vault.data.folders)) {
+        throw new Error('Dados do cofre em formato texto plano inválidos ou corrompidos.');
       }
       const data = backup.vault.data;
       if (backup.userProfile && !data.userProfile) {

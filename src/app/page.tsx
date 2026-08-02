@@ -39,7 +39,7 @@ export default function Home() {
 
   const checkVaultState = async () => {
     // Tenta restaurar sessão ativa do sessionStorage (persiste F5, limpa ao fechar aba)
-    const session = loadSession();
+    const session = await loadSession();
     if (session) {
       try {
         const encrypted = await loadEncryptedVaultForUser(session.email);
@@ -95,7 +95,7 @@ export default function Home() {
     setActiveMasterPassword(masterPassword);
     setVaultData(initialVault);
     setCachedUserProfile(userProfile);
-    saveSession(cleanEmail, masterPassword);
+    await saveSession(cleanEmail, masterPassword);
     setAuthStage('unlocked');
   };
 
@@ -137,7 +137,7 @@ export default function Home() {
       if (data.userProfile) {
         setCachedUserProfile(data.userProfile);
       }
-      saveSession(cleanEmail, masterPassword);
+      await saveSession(cleanEmail, masterPassword);
       setAuthStage('unlocked');
       return true;
     } catch {

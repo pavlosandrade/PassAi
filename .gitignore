@@ -12,6 +12,9 @@
 *.env
 .next/
 next-env.d.ts
+workspace/
+mantis-summary.md
+**/mantis-summary.md
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
