@@ -19,6 +19,7 @@ import { encryptData, decryptData } from '@/crypto/cipher';
 import { VaultData, UserProfile } from '@/types/vault';
 import { DEFAULT_FOLDERS } from '@/services/folderService';
 import { importBackupFile } from '@/services/backupService';
+import { saveSession, loadSession, clearSession } from '@/services/sessionService';
 import { Sparkles } from 'lucide-react';
 
 type AuthStage = 'loading' | 'auth' | 'unlocked';
@@ -37,6 +38,25 @@ export default function Home() {
   }, []);
 
   const checkVaultState = async () => {
+    // Tenta restaurar sessão ativa do sessionStorage (persiste F5, limpa ao fechar aba)
+    const session = loadSession();
+    if (session) {
+      try {
+        const encrypted = await loadEncryptedVaultForUser(session.email);
+        if (encrypted) {
+          const { key } = await deriveKeyFromPassword(session.masterPassword, encrypted.salt);
+          const data = await decryptData<VaultData>(encrypted, key);
+          setActiveMasterPassword(session.masterPassword);
+          setVaultData(data);
+          if (data.userProfile) setCachedUserProfile(data.userProfile);
+          setAuthStage('unlocked');
+          return;
+        }
+      } catch {
+        // Sessão inválida ou corrompida — limpa e pede login
+        clearSession();
+      }
+    }
     setAuthView('login');
     setAuthStage('auth');
   };
@@ -75,6 +95,7 @@ export default function Home() {
     setActiveMasterPassword(masterPassword);
     setVaultData(initialVault);
     setCachedUserProfile(userProfile);
+    saveSession(cleanEmail, masterPassword);
     setAuthStage('unlocked');
   };
 
@@ -116,6 +137,7 @@ export default function Home() {
       if (data.userProfile) {
         setCachedUserProfile(data.userProfile);
       }
+      saveSession(cleanEmail, masterPassword);
       setAuthStage('unlocked');
       return true;
     } catch {
@@ -157,6 +179,7 @@ export default function Home() {
 
   // 5. Logout / Trancamento
   const handleLock = () => {
+    clearSession();
     setActiveMasterPassword(null);
     setVaultData(null);
     setAuthView('login');

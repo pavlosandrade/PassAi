@@ -46,11 +46,11 @@ export default function PasswordGeneratorModal({ onClose }: PasswordGeneratorMod
   const strength = evaluatePasswordStrength(password);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 100 }}>
-      <div className="glass-panel animate-fade-in" style={{ maxWidth: '480px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+    <div className="modal-overlay" style={{ zIndex: 100 }}>
+      <div className="glass-panel animate-fade-in modal-box" style={{ maxWidth: '480px', padding: 0 }}>
         
         {/* STICKY HEADER */}
-        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', flexShrink: 0, zIndex: 10 }}>
+        <div className="modal-header" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <div style={{ padding: '0.5rem', background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)' }}>
               <Sparkles size={20} style={{ color: 'var(--accent-cyan)' }} />
@@ -70,7 +70,7 @@ export default function PasswordGeneratorModal({ onClose }: PasswordGeneratorMod
         </div>
 
         {/* SCROLLABLE BODY */}
-        <div style={{ padding: '1.5rem 1.75rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Password Display Box */}
           <div className="glass-card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', border: '1px solid var(--border-glow)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -161,7 +161,7 @@ export default function PasswordGeneratorModal({ onClose }: PasswordGeneratorMod
         </div>
 
         {/* STICKY FOOTER */}
-        <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid var(--border-light)', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, zIndex: 10 }}>
+        <div className="modal-footer" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', zIndex: 10 }}>
           <button className="btn btn-secondary" onClick={onClose}>
             Fechar
           </button>

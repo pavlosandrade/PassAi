@@ -294,19 +294,8 @@ export default function VaultLayout({
       {/* Navbar Superior */}
       <header className="glass-panel" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: '0.85rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 30 }}>
         
-        {/* Brand & Mobile Hamburger Toggle */}
+        {/* Brand — Logo + Nome (esquerda) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Botão de Menu Hamburguer Mobile */}
-          <button
-            type="button"
-            className="mobile-menu-toggle btn btn-secondary"
-            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-            style={{ padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            aria-label="Abrir Menu de Pastas"
-          >
-            {isMobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-
           <div style={{ padding: '0.5rem', background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center' }}>
             <Shield style={{ width: '22px', height: '22px', color: 'var(--accent-cyan)' }} />
           </div>
@@ -339,8 +328,19 @@ export default function VaultLayout({
             <span className="hide-mobile-text">Gerador</span>
           </button>
 
-          {/* User Account Dropdown */}
-          <div style={{ position: 'relative' }}>
+          {/* Botão Hamburguer Mobile — ao lado do Gerador, direita */}
+          <button
+            type="button"
+            className="mobile-menu-toggle btn btn-secondary"
+            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            style={{ padding: '0.45rem', alignItems: 'center', justifyContent: 'center', height: '38px', width: '38px', borderRadius: 'var(--radius-full)' }}
+            aria-label="Abrir Menu"
+          >
+            {isMobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+
+          {/* User Account Dropdown — oculto no mobile (opções ficam no sidebar drawer) */}
+          <div className="hide-on-mobile" style={{ position: 'relative' }}>
             <button
               type="button"
               onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
@@ -507,17 +507,39 @@ export default function VaultLayout({
       {/* Body: Sidebar + Credentials & Folders Area */}
       <div className="vault-main-container">
         
-        {/* Mobile Backdrop for Sidebar Drawer */}
-        {isMobileSidebarOpen && (
-          <div
-            className="mobile-sidebar-backdrop"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-        )}
-
-        {/* Sidebar Container */}
+        {/* Sidebar Container — fullscreen no mobile */}
         <aside className={`vault-sidebar ${isMobileSidebarOpen ? 'is-open' : ''}`}>
-          <div className="glass-panel" style={{ padding: '1rem', height: '100%' }}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
+
+            {/* Header do menu mobile com botão fechar */}
+            <div className="mobile-menu-toggle" style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.85rem 1.25rem',
+              borderBottom: '1px solid var(--border-light)',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ padding: '0.4rem', background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center' }}>
+                  <Shield style={{ width: '18px', height: '18px', color: 'var(--accent-cyan)' }} />
+                </div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  Pass<span className="gradient-text">Ai</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                style={{ padding: '0.4rem', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                aria-label="Fechar menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Conteúdo do sidebar (pastas) com scroll */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1rem 0' }}>
             <FolderList
               folders={vaultData.folders}
               credentials={vaultData.credentials}
@@ -530,8 +552,87 @@ export default function VaultLayout({
               onDeleteFolder={(folder) => { setIsMobileSidebarOpen(false); handleDeleteFolder(folder); }}
               onRequestPinUnlock={(folder) => { setIsMobileSidebarOpen(false); setPinPromptFolder(folder); }}
             />
+            </div>{/* fim do scroll */}
+
+            {/* Seção de Conta Mobile — fixada na base do fullscreen */}
+            <div className="mobile-account-section" style={{ padding: '0 1rem 1rem', borderTop: '1px solid var(--border-light)', flexShrink: 0 }}>
+              {/* Perfil */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.75rem 0.25rem' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 700, color: '#050811', flexShrink: 0 }}>
+                  {vaultData.userProfile?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {vaultData.userProfile?.name}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {vaultData.userProfile?.email}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ações de Conta */}
+              {[
+                { icon: <User size={15} style={{ color: 'var(--accent-cyan)' }} />, label: 'Minha Conta', action: () => { setIsMobileSidebarOpen(false); setIsAccountModalOpen(true); } },
+                { icon: <Download size={15} style={{ color: 'var(--accent-emerald)' }} />, label: 'Backup do Cofre', action: () => { setIsMobileSidebarOpen(false); setIsBackupOpen(true); } },
+                { icon: <Lock size={15} style={{ color: 'var(--accent-amber)' }} />, label: 'Trancar Cofre', action: () => { setIsMobileSidebarOpen(false); onLock(); } },
+              ].map(({ icon, label, action }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={action}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.5rem',
+                    background: 'none',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.7rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  {icon}{label}
+                </button>
+              ))}
+
+              <div style={{ height: '1px', background: 'var(--border-light)', margin: '0.35rem 0' }} />
+
+              <button
+                type="button"
+                onClick={() => { setIsMobileSidebarOpen(false); onLock(); }}
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 0.5rem',
+                  background: 'none',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-danger)',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.7rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,42,109,0.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+              >
+                <LogOut size={15} style={{ color: 'var(--color-danger)' }} />
+                Sair / Logout
+              </button>
+            </div>
           </div>
         </aside>
+
 
         {/* Main Content Area */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

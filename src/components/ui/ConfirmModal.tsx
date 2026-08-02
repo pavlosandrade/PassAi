@@ -73,11 +73,11 @@ export default function ConfirmModal({
   const IconComponent = styleConfig.icon;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 150 }}>
-      <div className="glass-panel animate-fade-in" style={{ maxWidth: '440px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+    <div className="modal-overlay" style={{ zIndex: 150 }}>
+      <div className="glass-panel animate-fade-in modal-box" style={{ maxWidth: '440px', padding: 0 }}>
         
         {/* STICKY HEADER */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', flexShrink: 0, zIndex: 10 }}>
+        <div className="modal-header" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div
               style={{
@@ -107,14 +107,14 @@ export default function ConfirmModal({
         </div>
 
         {/* SCROLLABLE BODY */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+        <div className="modal-body">
           <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
             {message}
           </p>
         </div>
 
         {/* STICKY FOOTER */}
-        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-light)', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0, zIndex: 10 }}>
+        <div className="modal-footer" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', zIndex: 10 }}>
           <button type="button" className="btn btn-secondary" onClick={onCancel} style={{ padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
             {cancelText}
           </button>

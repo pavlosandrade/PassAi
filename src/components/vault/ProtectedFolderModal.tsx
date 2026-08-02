@@ -42,12 +42,12 @@ export default function ProtectedFolderModal({
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 100 }}>
-      <div className="glass-panel animate-fade-in" style={{ maxWidth: '420px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+    <div className="modal-overlay" style={{ zIndex: 100 }}>
+      <div className="glass-panel animate-fade-in modal-box" style={{ maxWidth: '420px', padding: 0 }}>
         
         <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           {/* STICKY HEADER */}
-          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', flexShrink: 0, zIndex: 10 }}>
+          <div className="modal-header" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Lock size={18} style={{ color: 'var(--accent-amber)' }} />
               <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
@@ -64,7 +64,7 @@ export default function ProtectedFolderModal({
           </div>
 
           {/* SCROLLABLE BODY */}
-          <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
               Esta pasta requer a confirmação da **sua 2ª camada de segurança (PIN/Senha)** para liberar a visualização das credenciais.
             </p>
@@ -99,7 +99,7 @@ export default function ProtectedFolderModal({
           </div>
 
           {/* STICKY FOOTER */}
-          <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-light)', background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0, zIndex: 10 }}>
+          <div className="modal-footer" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', zIndex: 10 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancelar
             </button>
