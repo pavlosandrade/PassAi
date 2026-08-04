@@ -1,11 +1,8 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserProfile, VaultData } from '@/types/vault';
-import { X, User, Mail, KeyRound, HelpCircle, Shield, Copy, Check, Folder, Star, Key, RefreshCw } from 'lucide-react';
+import { X, User, Mail, KeyRound, HelpCircle, Shield, Copy, Check, Folder, Star, Key, RefreshCw, Fingerprint, Lock, Trash2 } from 'lucide-react';
 import { copyToClipboard } from '@/utils/clipboard';
-import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
-import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
+import { isBiometricVaultAvailable, registerBiometricVault, removeBiometricVault, isWebAuthnSupported } from '@/services/webAuthnService';
 
 interface AccountProfileModalProps {
   userProfile: UserProfile;
@@ -21,8 +18,41 @@ export default function AccountProfileModal({
   onOpenSyncModal,
 }: AccountProfileModalProps) {
   const [copiedKey, setCopiedKey] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasBiometrics, setHasBiometrics] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [bioMessage, setBioMessage] = useState('');
+  const [bioError, setBioError] = useState('');
+
+  useEffect(() => {
+    if (isWebAuthnSupported()) {
+      setHasBiometrics(isBiometricVaultAvailable(userProfile.email));
+    }
+  }, [userProfile.email]);
+
+  const handleEnableBiometrics = async () => {
+    if (!passwordInput) {
+      setBioError('Digite sua Senha Mestra para vincular à biometria.');
+      return;
+    }
+    setBioError('');
+    setBioMessage('');
+    try {
+      await registerBiometricVault(userProfile.email, passwordInput);
+      setHasBiometrics(true);
+      setShowPasswordForm(false);
+      setPasswordInput('');
+      setBioMessage('Biometria / Digital vinculada com sucesso neste dispositivo!');
+    } catch (err: any) {
+      setBioError(err.message || 'Erro ao registrar biometria.');
+    }
+  };
+
+  const handleRemoveBiometrics = () => {
+    removeBiometricVault(userProfile.email);
+    setHasBiometrics(false);
+    setBioMessage('Biometria removida deste aparelho.');
+  };
 
   const totalCredentials = vaultData.credentials.length;
   const totalFolders = vaultData.folders.length;
@@ -118,6 +148,76 @@ export default function AccountProfileModal({
             </div>
           )}
 
+          {/* Biometrics Settings Card */}
+          <div className="glass-card" style={{ padding: '1rem', border: '1px solid rgba(0, 245, 160, 0.3)', background: 'rgba(0, 245, 160, 0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Fingerprint size={20} style={{ color: 'var(--accent-emerald)' }} />
+                <div>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
+                    Desbloqueio por Biometria / Passkey
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {hasBiometrics ? 'Ativo neste dispositivo (Touch ID / Face ID / Windows Hello)' : 'Desativado neste dispositivo'}
+                  </span>
+                </div>
+              </div>
+
+              {hasBiometrics ? (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleRemoveBiometrics}
+                  style={{ background: 'rgba(255, 42, 109, 0.15)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                >
+                  <Trash2 size={13} /> Desativar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowPasswordForm(!showPasswordForm)}
+                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                >
+                  Ativar Biometria
+                </button>
+              )}
+            </div>
+
+            {bioMessage && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                {bioMessage}
+              </div>
+            )}
+
+            {bioError && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--color-danger)', fontWeight: 600 }}>
+                {bioError}
+              </div>
+            )}
+
+            {showPasswordForm && !hasBiometrics && (
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  Confirme sua Senha Mestra para cadastrar a biometria:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="password"
+                    className="input-field font-mono"
+                    placeholder="Sua senha mestra..."
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    style={{ fontSize: '0.8rem' }}
+                  />
+                  <button type="button" className="btn btn-primary" onClick={handleEnableBiometrics} style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    Vincular
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Vault Statistics */}
           <div>
             <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -146,21 +246,23 @@ export default function AccountProfileModal({
 
           {/* Legal Document Links */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            <button
-              type="button"
-              onClick={() => setShowPrivacyModal(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
             >
               Política de Privacidade
-            </button>
+            </a>
             <span>•</span>
-            <button
-              type="button"
-              onClick={() => setShowTermsModal(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
             >
               Termos de Uso
-            </button>
+            </a>
           </div>
 
         </div>
@@ -187,9 +289,6 @@ export default function AccountProfileModal({
         </div>
 
       </div>
-
-      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
-      {showTermsModal && <TermsOfServiceModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 }

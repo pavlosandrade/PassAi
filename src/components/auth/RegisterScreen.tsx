@@ -7,8 +7,6 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { userVaultExists } from '@/services/storageService';
 import { UserProfile } from '@/types/vault';
 import { SyncMode } from '@/types/sync';
-import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
-import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
 
 interface RegisterScreenProps {
   initialProfile?: UserProfile;
@@ -27,8 +25,6 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Chave de recuperação de emergência gerada no cadastro
   const [generatedRecoveryKey] = useState(() => {
@@ -375,28 +371,27 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
 
           {/* Legal Links */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            <button
-              type="button"
-              onClick={() => setShowPrivacyModal(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
             >
               Política de Privacidade
-            </button>
+            </a>
             <span>•</span>
-            <button
-              type="button"
-              onClick={() => setShowTermsModal(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
             >
               Termos de Uso
-            </button>
+            </a>
           </div>
         </div>
 
       </div>
-
-      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
-      {showTermsModal && <TermsOfServiceModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 }
