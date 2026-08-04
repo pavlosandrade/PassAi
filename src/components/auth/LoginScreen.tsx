@@ -126,56 +126,75 @@ export default function LoginScreen({
     setIsSubmitting(true);
     try {
       const token = await authenticateGoogleDrive();
+
+      // 1. Obtém e-mail e nome do usuário diretamente da conta do Google
+      let userGoogleEmail = '';
+      let userGoogleName = '';
+
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (userInfoRes.ok) {
+          const info = await userInfoRes.json();
+          if (info.email) userGoogleEmail = info.email.trim().toLowerCase();
+          if (info.name) userGoogleName = info.name.trim();
+        }
+      } catch (uErr) {
+        console.warn('Não foi possível obter dados do perfil do Google:', uErr);
+      }
+
+      // 2. Busca cofre no Google Drive
       const remote = await downloadVaultFromDrive(token);
 
       if (remote && remote.payload) {
-        const profileEmail = selectedAccount?.email || email;
+        // O cofre já existe no Google Drive
+        const targetEmail = userGoogleEmail || selectedAccount?.email || email;
 
-        if (password && remote.payload.ciphertext) {
-          const { key } = await deriveKeyFromPassword(password, remote.payload.salt);
-          const vault = await decryptData<VaultData>(remote.payload, key);
-          if (vault.userProfile?.email) {
-            await saveEncryptedVaultForUser(vault.userProfile.email, remote.payload, vault.userProfile.name);
-            await onLogin(vault.userProfile.email, password);
-            return;
-          }
-        }
-
-        if (profileEmail) {
-          await saveEncryptedVaultForUser(profileEmail, remote.payload, profileEmail);
-          setSelectedAccount({ email: profileEmail, name: profileEmail });
-          setEmail(profileEmail);
+        if (targetEmail) {
+          await saveEncryptedVaultForUser(targetEmail, remote.payload, userGoogleName || targetEmail);
+          setSelectedAccount({ email: targetEmail, name: userGoogleName || targetEmail });
+          setEmail(targetEmail);
           setViewMode('locked_profile');
-        }
 
-        setSuccess('Conectado ao Google Drive! Digite sua Senha Mestra para abrir seu cofre.');
-      } else {
-        let userGoogleEmail = selectedAccount?.email || email || '';
-        let userGoogleName = selectedAccount?.name || '';
-
-        try {
-          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (userInfoRes.ok) {
-            const info = await userInfoRes.json();
-            if (info.email) userGoogleEmail = info.email;
-            if (info.name) userGoogleName = info.name;
+          // Se a senha já estava digitada no campo, faz login direto!
+          if (password) {
+            const isOk = await onLogin(targetEmail, password);
+            if (isOk) return;
           }
-        } catch {
-          /* ignore */
+
+          // Se tiver biometria cadastrada neste aparelho, tenta desbloquear automaticamente!
+          if (isWebAuthnSupported() && isBiometricVaultAvailable(targetEmail)) {
+            try {
+              const unlockedPassword = await unlockVaultWithBiometrics(targetEmail);
+              const isOk = await onLogin(targetEmail, unlockedPassword);
+              if (isOk) return;
+            } catch {
+              /* ignore biometrics cancel */
+            }
+          }
         }
 
-        if (!userGoogleEmail) {
-          userGoogleEmail = prompt('Digite seu e-mail do Google para vincular ao novo cofre:') || '';
-        }
+        setSuccess('Cofre do Google Drive localizado! Digite sua Senha Mestra para abrir.');
+      } else {
+        // NÃO existe cofre no Google Drive -> Primeiro acesso com Google!
+        const finalEmail = userGoogleEmail || selectedAccount?.email || email;
 
-        if (userGoogleEmail) {
+        if (finalEmail) {
           setGoogleSetupData({
-            email: userGoogleEmail,
-            name: userGoogleName || userGoogleEmail.split('@')[0],
+            email: finalEmail,
+            name: userGoogleName || finalEmail.split('@')[0],
             token,
           });
+        } else {
+          const inputEmail = prompt('Digite seu e-mail do Google para criar seu cofre:');
+          if (inputEmail) {
+            setGoogleSetupData({
+              email: inputEmail.trim().toLowerCase(),
+              name: inputEmail.split('@')[0],
+              token,
+            });
+          }
         }
       }
     } catch (err: any) {

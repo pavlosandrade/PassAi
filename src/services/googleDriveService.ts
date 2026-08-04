@@ -1,7 +1,7 @@
 import { EncryptedPayload } from '@/types/crypto';
 
 const DRIVE_FILE_NAME = 'passai_vault.enc.json';
-const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 const TOKEN_KEY = 'passai_gdrive_token';
 const CLIENT_ID_KEY = 'passai_gdrive_client_id';
 
