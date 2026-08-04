@@ -2,21 +2,27 @@
 
 import { useState } from 'react';
 import { UserProfile, VaultData } from '@/types/vault';
-import { X, User, Mail, KeyRound, HelpCircle, Shield, Copy, Check, Folder, Star, Key } from 'lucide-react';
+import { X, User, Mail, KeyRound, HelpCircle, Shield, Copy, Check, Folder, Star, Key, RefreshCw } from 'lucide-react';
 import { copyToClipboard } from '@/utils/clipboard';
+import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
+import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
 
 interface AccountProfileModalProps {
   userProfile: UserProfile;
   vaultData: VaultData;
   onClose: () => void;
+  onOpenSyncModal?: () => void;
 }
 
 export default function AccountProfileModal({
   userProfile,
   vaultData,
   onClose,
+  onOpenSyncModal,
 }: AccountProfileModalProps) {
   const [copiedKey, setCopiedKey] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const totalCredentials = vaultData.credentials.length;
   const totalFolders = vaultData.folders.length;
@@ -138,16 +144,52 @@ export default function AccountProfileModal({
             </div>
           </div>
 
+          {/* Legal Document Links */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <button
+              type="button"
+              onClick={() => setShowPrivacyModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Política de Privacidade
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Termos de Uso
+            </button>
+          </div>
+
         </div>
 
         {/* STICKY FOOTER */}
-        <div className="modal-footer" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', zIndex: 10 }}>
+        <div className="modal-footer" style={{ background: 'rgba(13, 18, 29, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+          {onOpenSyncModal ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                onClose();
+                onOpenSyncModal();
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-cyan)' }}
+            >
+              <RefreshCw size={14} /> Sincronização
+            </button>
+          ) : <div />}
+
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Fechar
           </button>
         </div>
 
       </div>
+
+      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
+      {showTermsModal && <TermsOfServiceModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 }

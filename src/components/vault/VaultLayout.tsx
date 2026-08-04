@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { VaultData, Credential, Folder } from '@/types/vault';
 import { evaluatePasswordStrength } from '@/utils/passwordGen';
 import FolderList from './FolderList';
@@ -15,7 +15,11 @@ import PasswordGeneratorModal from '../tools/PasswordGeneratorModal';
 import BackupManagerModal from '../backup/BackupManagerModal';
 import ConfirmModal from '../ui/ConfirmModal';
 import AccountProfileModal from '../auth/AccountProfileModal';
-import { Search, Plus, Shield, LogOut, Download, Sparkles, Key, Lock, FolderPlus, KeyRound, ChevronRight, ChevronDown, Home, Folder as FolderIcon, User, Menu, X, Activity } from 'lucide-react';
+import SyncModal from '../sync/SyncModal';
+import { SyncMode } from '@/types/sync';
+import { deriveKeyFromPassword } from '@/crypto/pbkdf2';
+import { EncryptedPayload } from '@/types/crypto';
+import { Search, Plus, Shield, LogOut, Download, Sparkles, Key, Lock, FolderPlus, KeyRound, ChevronRight, ChevronDown, Home, Folder as FolderIcon, User, Menu, X, Activity, RefreshCw } from 'lucide-react';
 import {
   getFolderFullPath,
   getFolderAndSubfolderIds,
@@ -41,9 +45,29 @@ export default function VaultLayout({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isFolderLoading, setIsFolderLoading] = useState(false);
+  const [masterCryptoKey, setMasterCryptoKey] = useState<CryptoKey | undefined>(undefined);
+
+  // Deriva a CryptoKey a partir da masterPassword quando a tela carrega
+  useEffect(() => {
+    if (masterPassword) {
+      deriveKeyFromPassword(masterPassword).then(({ key }) => {
+        setMasterCryptoKey(key);
+      }).catch(() => {});
+    }
+  }, [masterPassword]);
+
+  const handleFolderSelect = (id: string) => {
+    setIsMobileSidebarOpen(false);
+    if (id === activeFolderId) return;
+    setIsFolderLoading(true);
+    setActiveFolderId(id);
+    setTimeout(() => setIsFolderLoading(false), 450);
+  };
 
   // Diagnóstico de Saúde do Cofre (Vault Health Check)
   const healthStats = useMemo(() => {
@@ -287,7 +311,7 @@ export default function VaultLayout({
   };
 
   const handleFolderCardClick = (folder: Folder) => {
-    setActiveFolderId(folder.id);
+    handleFolderSelect(folder.id);
     if (isFolderOrAncestorLocked(vaultData.folders, folder.id, unlockedFolderPins)) {
       setPinPromptFolder(folder);
     }
@@ -520,6 +544,31 @@ export default function VaultLayout({
 
                 <button
                   type="button"
+                  onClick={() => { setIsAccountDropdownOpen(false); setIsSyncModalOpen(true); }}
+                  style={{
+                    width: '100%',
+                    padding: '0.55rem 0.75rem',
+                    background: 'none',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.55rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  <RefreshCw size={15} style={{ color: 'var(--accent-cyan)' }} />
+                  Sincronização
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => { setIsAccountDropdownOpen(false); onLock(); }}
                   style={{
                     width: '100%',
@@ -617,7 +666,7 @@ export default function VaultLayout({
               credentials={vaultData.credentials}
               activeFolderId={activeFolderId}
               unlockedFolderPins={unlockedFolderPins}
-              onSelectFolder={(id) => { setActiveFolderId(id); setIsMobileSidebarOpen(false); }}
+              onSelectFolder={handleFolderSelect}
               onCreateFolder={() => { setIsMobileSidebarOpen(false); handleCreateFolder(); }}
               onCreateSubfolder={(id) => { setIsMobileSidebarOpen(false); handleCreateSubfolder(id); }}
               onEditFolder={(folder) => { setIsMobileSidebarOpen(false); handleEditFolder(folder); }}
@@ -646,6 +695,7 @@ export default function VaultLayout({
               {/* Ações de Conta */}
               {[
                 { icon: <User size={15} style={{ color: 'var(--accent-cyan)' }} />, label: 'Minha Conta', action: () => { setIsMobileSidebarOpen(false); setIsAccountModalOpen(true); } },
+                { icon: <RefreshCw size={15} style={{ color: 'var(--accent-cyan)' }} />, label: 'Sincronização', action: () => { setIsMobileSidebarOpen(false); setIsSyncModalOpen(true); } },
                 { icon: <Download size={15} style={{ color: 'var(--accent-emerald)' }} />, label: 'Backup do Cofre', action: () => { setIsMobileSidebarOpen(false); setIsBackupOpen(true); } },
                 { icon: <Lock size={15} style={{ color: 'var(--accent-amber)' }} />, label: 'Trancar Cofre', action: () => { setIsMobileSidebarOpen(false); onLock(); } },
               ].map(({ icon, label, action }) => (
@@ -722,7 +772,7 @@ export default function VaultLayout({
                     {idx > 0 && <ChevronRight size={13} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />}
                     <button
                       type="button"
-                      onClick={() => setActiveFolderId(crumb.id)}
+                      onClick={() => handleFolderSelect(crumb.id)}
                       disabled={isLast}
                       style={{
                         background: isLast ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.04)',
@@ -825,8 +875,24 @@ export default function VaultLayout({
             </div>
           </div>
 
-          {/* Protected Folder Lock Screen */}
-          {isCurrentFolderLocked ? (
+          {/* Folder Content & Skeletons */}
+          {isFolderLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <FolderIcon size={14} style={{ color: 'var(--accent-cyan)' }} />
+                Carregando registros...
+              </div>
+              <div className="folders-grid">
+                <FolderCardSkeleton />
+                <FolderCardSkeleton />
+              </div>
+              <div className="credentials-grid">
+                <CredentialCardSkeleton />
+                <CredentialCardSkeleton />
+                <CredentialCardSkeleton />
+              </div>
+            </div>
+          ) : isCurrentFolderLocked ? (
             <div className="glass-panel animate-fade-in" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
               <div style={{ padding: '1.25rem', background: 'rgba(255, 183, 3, 0.12)', border: '1px solid rgba(255, 183, 3, 0.3)', borderRadius: 'var(--radius-full)' }}>
                 <Lock style={{ width: '48px', height: '48px', color: 'var(--accent-amber)' }} />
@@ -990,6 +1056,23 @@ export default function VaultLayout({
           userProfile={vaultData.userProfile}
           vaultData={vaultData}
           onClose={() => setIsAccountModalOpen(false)}
+          onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        />
+      )}
+
+      {isSyncModalOpen && vaultData.userProfile && (
+        <SyncModal
+          userProfile={vaultData.userProfile}
+          vaultData={vaultData}
+          masterPasswordKey={masterCryptoKey}
+          onClose={() => setIsSyncModalOpen(false)}
+          onUpdateSyncMode={async (mode: SyncMode) => {
+            const updatedProfile = { ...vaultData.userProfile!, syncMode: mode };
+            await onUpdateVault({ ...vaultData, userProfile: updatedProfile });
+          }}
+          onVaultUpdated={async (updatedVault: VaultData) => {
+            await onUpdateVault(updatedVault);
+          }}
         />
       )}
 

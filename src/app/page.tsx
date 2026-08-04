@@ -20,6 +20,8 @@ import { VaultData, UserProfile } from '@/types/vault';
 import { DEFAULT_FOLDERS } from '@/services/folderService';
 import { importBackupFile } from '@/services/backupService';
 import { saveSession, loadSession, clearSession } from '@/services/sessionService';
+import { uploadVaultToDrive, getStoredDriveToken } from '@/services/googleDriveService';
+import { SyncMode } from '@/types/sync';
 import { Sparkles } from 'lucide-react';
 
 type AuthStage = 'loading' | 'auth' | 'unlocked';
@@ -38,6 +40,7 @@ export default function Home() {
   }, []);
 
   const checkVaultState = async () => {
+    const startTime = Date.now();
     // Tenta restaurar sessão ativa do sessionStorage (persiste F5, limpa ao fechar aba)
     const session = await loadSession();
     if (session) {
@@ -49,7 +52,12 @@ export default function Home() {
           setActiveMasterPassword(session.masterPassword);
           setVaultData(data);
           if (data.userProfile) setCachedUserProfile(data.userProfile);
-          setAuthStage('unlocked');
+          
+          const elapsed = Date.now() - startTime;
+          const remaining = Math.max(0, 650 - elapsed);
+          setTimeout(() => {
+            setAuthStage('unlocked');
+          }, remaining);
           return;
         }
       } catch {
@@ -57,8 +65,12 @@ export default function Home() {
         clearSession();
       }
     }
-    setAuthView('login');
-    setAuthStage('auth');
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, 300 - elapsed);
+    setTimeout(() => {
+      setAuthView('login');
+      setAuthStage('auth');
+    }, remaining);
   };
 
   // 1. Cadastro de Novo Cofre e Perfil Isolado por E-mail
@@ -67,7 +79,8 @@ export default function Home() {
     email: string,
     masterPassword: string,
     passwordHint?: string,
-    recoveryKey?: string
+    recoveryKey?: string,
+    syncMode?: SyncMode
   ) => {
     const cleanEmail = email.trim().toLowerCase();
     const userProfile: UserProfile = {
@@ -75,6 +88,7 @@ export default function Home() {
       email: cleanEmail,
       passwordHint,
       recoveryKey,
+      syncMode: syncMode || 'offline',
       createdAt: new Date().toISOString(),
     };
 
@@ -164,7 +178,7 @@ export default function Home() {
     setVaultData(currentVault);
   };
 
-  // 4. Atualização do Cofre em tempo real (isolar por e-mail)
+  // 4. Atualização do Cofre em tempo real (isolar por e-mail e auto-sync Google Drive)
   const handleUpdateVault = async (updatedVault: VaultData) => {
     setVaultData(updatedVault);
     if (updatedVault.userProfile) {
@@ -174,6 +188,14 @@ export default function Home() {
       const { key, salt } = await deriveKeyFromPassword(activeMasterPassword);
       const encrypted = await encryptData(updatedVault, key, salt);
       await saveEncryptedVaultForUser(updatedVault.userProfile.email, encrypted, updatedVault.userProfile.name);
+
+      // Auto-sincronização em background se o modo for Google Drive
+      if (updatedVault.userProfile?.syncMode === 'gdrive') {
+        const token = getStoredDriveToken();
+        if (token) {
+          uploadVaultToDrive(encrypted, token).catch((err) => console.warn('Auto-sync Google Drive warn:', err));
+        }
+      }
     }
   };
 

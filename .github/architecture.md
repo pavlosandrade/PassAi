@@ -62,6 +62,8 @@ src/
 ├── components/                 # Componentes de interface (UI)
 │   ├── auth/                   # Autenticação e Perfil do Usuário (Login, Cadastro, Recuperação, AccountProfileModal.tsx)
 │   ├── vault/                  # Navegação por pastas, cards, modais e Skeletons (VaultSkeletonLoader.tsx, CredentialCardSkeleton.tsx, FolderCardSkeleton.tsx)
+│   ├── sync/                   # Sincronização Google Drive e P2P WebRTC (SyncModal.tsx)
+│   ├── legal/                  # Modais de conformidade legal (PrivacyPolicyModal.tsx, TermsOfServiceModal.tsx)
 │   ├── ui/                     # Diálogos e modais padronizados da UI (ConfirmModal.tsx)
 │   ├── tools/                  # Gerador de senhas e auditoria
 │   └── backup/                 # Gerenciador de importação/exportação JSON
@@ -71,9 +73,13 @@ src/
 ├── services/                   # Serviços de dados e armazenamento
 │   ├── storageService.ts       # Persistência local (LocalStorage/IndexedDB)
 │   ├── folderService.ts        # Gerenciamento de pastas e validação de PINs
-│   └── backupService.ts        # Leitura e geração de arquivos JSON
+│   ├── backupService.ts        # Leitura e geração de arquivos JSON
+│   ├── googleDriveService.ts   # Sincronização em nuvem via Google Drive API (OAuth2 Client-side)
+│   ├── webrtcSyncService.ts    # Conexão P2P direta entre dispositivos via WebRTC/QR Code
+│   └── syncMergeService.ts     # Fusão de conflitos e reconciliação baseada em timestamps
 ├── types/                      # Definições de tipos TypeScript
 │   ├── vault.ts                # Interfaces de credenciais e pastas
+│   ├── sync.ts                 # Interfaces para estado e modos de sincronização
 │   └── crypto.ts               # Schemas de dados criptografados
 └── utils/                      # Utilitários auxiliares
     ├── passwordGen.ts          # Algoritmo de geração randômica segura
@@ -81,6 +87,19 @@ src/
 ```
 
 ## Modelo de dados e segurança
+
+### Estratégia de Sincronização Híbrida
+
+1.  **Google Drive Cloud Sync:**
+    *   **Autenticação:** Google Identity Services (GIS) / Token Client OAuth2 100% no navegador.
+    *   **Escopo:** `https://www.googleapis.com/auth/drive.appdata` (Acesso isolado à pasta oculta de dados do app).
+    *   **Formato do arquivo:** Arquivo criptografado `passai_vault.enc.json` idêntico ao formato de backup AES-GCM 256 bits.
+2.  **P2P Direct Sync (WebRTC):**
+    *   **Pareamento:** Dispositivo emissor exibe QR Code contendo as ofertas WebRTC (SDP / Ice Candidates).
+    *   **Conexão:** Dispositivo leitor estabelece canal de dados `RTCDataChannel` criptografado ponto a ponto sem armazenamento intermediário.
+3.  **Algoritmo de Fusão de Conflitos (`syncMergeService`):**
+    *   Reconciliação por item (Credenciais e Pastas) utilizando o campo `updatedAt` / `createdAt`.
+    *   Itens mais recentes substituem a versão anterior; novos itens em ambos os lados são mesclados na coleção.
 
 ### Fluxo de criptografia de dupla camada
 
@@ -120,8 +139,7 @@ Para publicar a aplicação estática no GitHub Pages:
 1.  **Configuração de Build (`next.config.mjs`):**
     *   Definição de `output: 'export'`.
     *   Desativação da otimização dinâmica de imagens (`images: { unoptimized: true }`).
-2.  **Automação via GitHub Actions:**
-    *   Workflow configurado para executar `npm run build` ao realizar push na
-        branch `main`.
-    *   Publicação automática dos artefatos estáticos da pasta `out/` no GitHub
-        Pages.
+2.  **Automação via GitHub Actions (`deploy.yml`):**
+    *   Workflow configurado para executar `npm run build` ao realizar push na branch `main`.
+    *   Injeção automática do `NEXT_PUBLIC_GOOGLE_CLIENT_ID` via GitHub Secrets ou variável de build estática.
+    *   Publicação automática dos artefatos estáticos da pasta `out/` no GitHub Pages.

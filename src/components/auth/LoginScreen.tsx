@@ -1,8 +1,8 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check } from 'lucide-react';
+import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check, ShieldCheck, FileCheck } from 'lucide-react';
 import { UserProfile } from '@/types/vault';
+import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
+import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
 
 interface LoginScreenProps {
   userProfile?: UserProfile;
@@ -26,6 +26,8 @@ export default function LoginScreen({
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   useEffect(() => {
     if (userProfile?.email && !email) {
@@ -230,9 +232,31 @@ export default function LoginScreen({
             Restaurar de arquivo de backup (.json)
             <input type="file" accept=".json" onChange={handleFileUpload} style={{ display: 'none' }} />
           </label>
+
+          {/* Legal Links */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <button
+              type="button"
+              onClick={() => setShowPrivacyModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Política de Privacidade
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Termos de Uso
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
+      {showTermsModal && <TermsOfServiceModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 }

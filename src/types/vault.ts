@@ -1,3 +1,5 @@
+import { SyncMode } from './sync';
+
 /**
  * Perfil de identificação do usuário do cofre.
  */
@@ -6,6 +8,7 @@ export interface UserProfile {
   email: string;
   passwordHint?: string;
   recoveryKey?: string;
+  syncMode?: SyncMode;
   createdAt: string;
 }
 

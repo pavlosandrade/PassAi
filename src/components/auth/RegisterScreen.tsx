@@ -6,10 +6,13 @@ import { evaluatePasswordStrength, generatePassword } from '@/utils/passwordGen'
 import { copyToClipboard } from '@/utils/clipboard';
 import { userVaultExists } from '@/services/storageService';
 import { UserProfile } from '@/types/vault';
+import { SyncMode } from '@/types/sync';
+import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
+import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
 
 interface RegisterScreenProps {
   initialProfile?: UserProfile;
-  onRegisterComplete: (name: string, email: string, masterPassword: string, passwordHint?: string, recoveryKey?: string) => void;
+  onRegisterComplete: (name: string, email: string, masterPassword: string, passwordHint?: string, recoveryKey?: string, syncMode?: SyncMode) => void;
   onNavigateToLogin: () => void;
 }
 
@@ -19,10 +22,13 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordHint, setPasswordHint] = useState(initialProfile?.passwordHint || '');
+  const [syncMode, setSyncMode] = useState<SyncMode>(initialProfile?.syncMode || 'offline');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Chave de recuperação de emergência gerada no cadastro
   const [generatedRecoveryKey] = useState(() => {
@@ -92,7 +98,7 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
         return;
       }
 
-      onRegisterComplete(name.trim(), email.trim(), password, passwordHint.trim() || undefined, generatedRecoveryKey);
+      onRegisterComplete(name.trim(), email.trim(), password, passwordHint.trim() || undefined, generatedRecoveryKey, syncMode);
     } catch {
       setError('Erro ao criar a conta. Tente novamente.');
     } finally {
@@ -262,6 +268,63 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
             </div>
           </div>
 
+          {/* Sync Mode Selection */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+              Modo de Sincronização Desejado
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setSyncMode('offline')}
+                style={{
+                  padding: '0.6rem 0.4rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: syncMode === 'offline' ? '2px solid var(--accent-cyan)' : '1px solid var(--border-light)',
+                  background: syncMode === 'offline' ? 'rgba(0, 242, 254, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                Local / Offline
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncMode('gdrive')}
+                style={{
+                  padding: '0.6rem 0.4rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: syncMode === 'gdrive' ? '2px solid var(--accent-cyan)' : '1px solid var(--border-light)',
+                  background: syncMode === 'gdrive' ? 'rgba(0, 242, 254, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                Google Drive
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncMode('webrtc')}
+                style={{
+                  padding: '0.6rem 0.4rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: syncMode === 'webrtc' ? '2px solid var(--accent-cyan)' : '1px solid var(--border-light)',
+                  background: syncMode === 'webrtc' ? 'rgba(0, 242, 254, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                Direto P2P
+              </button>
+            </div>
+          </div>
+
           {/* Recovery Key Banner */}
           <div className="glass-card" style={{ padding: '0.85rem', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: 'var(--radius-sm)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
@@ -300,18 +363,40 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
         </form>
 
         {/* Footer Navigation */}
-        <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)', textAlign: 'center', fontSize: '0.82rem' }}>
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)', textAlign: 'center', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <button
             type="button"
             onClick={onNavigateToLogin}
-            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
           >
             <LogIn size={15} style={{ color: 'var(--accent-cyan)' }} />
             Já possui uma conta? <strong style={{ color: 'var(--accent-cyan)' }}>Fazer Login</strong>
           </button>
+
+          {/* Legal Links */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <button
+              type="button"
+              onClick={() => setShowPrivacyModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Política de Privacidade
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Termos de Uso
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
+      {showTermsModal && <TermsOfServiceModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 }
