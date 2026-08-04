@@ -36,7 +36,7 @@ Para a visão funcional detalhada, consulte o [context.md](context.md).
 * **Autenticação Mestra:** login local via Senha Mestra Zero-Knowledge com trancamento automático por inatividade.
 * **Gerenciamento por Pastas:** organização flexível de credenciais com badges e contadores.
 * **Dupla Proteção em Pastas Sensíveis:** PIN/Senha secundário opcional por pasta com segunda camada de criptografia AES-256.
-* **Sincronização Multi-Dispositivo:** escolha no onboarding e perfil entre Modo Local (Offline), Google Drive Cloud Sync (1-clique via OAuth estático pré-configurado) ou Pareamento Direto P2P (WebRTC via QR Code).
+* **Sincronização Multi-Dispositivo:** escolha no onboarding e perfil entre Modo Local (Offline), Google Drive Cloud Sync (com derivação dinâmica de chave baseada no salt remoto para compatibilidade entre aparelhos) ou Pareamento Direto P2P (WebRTC via QR Code).
 * **Conformidade Legal & LGPD:** Termos de Uso e Política de Privacidade dedicados acessíveis em toda a aplicação.
 * **Cópia Segura com Auto-limpeza:** cópia temporária para a área de transferência com expiração em 15 segundos.
 * **Gerador e Auditor de Senhas:** criação de senhas fortes com alta entropia e diagnóstico visual.
