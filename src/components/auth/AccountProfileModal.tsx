@@ -247,7 +247,7 @@ export default function AccountProfileModal({
           {/* Legal Document Links */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             <a
-              href="/privacy"
+              href="https://pavlosandrade.github.io/PassAi/privacy"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
@@ -256,7 +256,7 @@ export default function AccountProfileModal({
             </a>
             <span>•</span>
             <a
-              href="/terms"
+              href="https://pavlosandrade.github.io/PassAi/terms"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}

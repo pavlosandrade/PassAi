@@ -3,8 +3,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'PassAi — Gerenciador de Senhas Local & Seguro',
-  description: 'Gerenciador de senhas pessoal 100% local, seguro, criptografado e offline.',
+  description: 'Gerenciador de senhas pessoal e cofre seguro 100% local, criptografado (AES-256) e offline.',
   manifest: './manifest.json',
+  verification: {
+    google: 'M3arvZvhm12sXkhgqz0C0DBvmOfBW1UBnQjivakv_oA',
+  },
   icons: {
     icon: '/favicon.ico',
   },
@@ -18,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        <meta name="google-site-verification" content="M3arvZvhm12sXkhgqz0C0DBvmOfBW1UBnQjivakv_oA" />
         <link rel="manifest" href="./manifest.json" />
         <meta name="theme-color" content="#0b0f19" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

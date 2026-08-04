@@ -247,16 +247,19 @@ export default function LoginScreen({
       <div className="glass-panel animate-fade-in" style={{ maxWidth: '420px', width: '100%', padding: '2.25rem' }}>
         
         {/* Sleek Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'inline-flex', padding: '0.85rem', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', borderRadius: 'var(--radius-full)', marginBottom: '0.65rem' }}>
             <Shield style={{ width: '32px', height: '32px', color: 'var(--accent-cyan)' }} />
           </div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0 }}>
+          <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
             PassAi <span className="gradient-text">Vault</span>
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.2rem' }}>
-            Cofre Seguro Criptografado
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.35rem', lineHeight: 1.4 }}>
+            Gerenciador de senhas pessoal com criptografia de ponta a ponta (AES-256).
           </p>
+          <div style={{ marginTop: '0.5rem', padding: '0.45rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0, 242, 254, 0.05)', border: '1px solid rgba(0, 242, 254, 0.15)', fontSize: '0.73rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+            A integração com a conta do Google é utilizada exclusivamente para backup e sincronização do cofre no seu próprio Google Drive.
+          </div>
         </div>
 
         {/* Feedback Messages */}
@@ -609,11 +612,11 @@ export default function LoginScreen({
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', color: 'var(--text-muted)', fontSize: '0.73rem' }}>
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none' }} className="hover:underline">
-              Privacidade
+            <a href="https://pavlosandrade.github.io/PassAi/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none' }} className="hover:underline">
+              Política de Privacidade
             </a>
             <span>•</span>
-            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none' }} className="hover:underline">
+            <a href="https://pavlosandrade.github.io/PassAi/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none' }} className="hover:underline">
               Termos de Uso
             </a>
           </div>

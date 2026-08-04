@@ -372,7 +372,7 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
           {/* Legal Links */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             <a
-              href="/privacy"
+              href="https://pavlosandrade.github.io/PassAi/privacy"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
@@ -381,7 +381,7 @@ export default function RegisterScreen({ initialProfile, onRegisterComplete, onN
             </a>
             <span>•</span>
             <a
-              href="/terms"
+              href="https://pavlosandrade.github.io/PassAi/terms"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}
