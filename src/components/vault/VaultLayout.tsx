@@ -1064,6 +1064,7 @@ export default function VaultLayout({
         <SyncModal
           userProfile={vaultData.userProfile}
           vaultData={vaultData}
+          masterPassword={masterPassword}
           masterPasswordKey={masterCryptoKey}
           onClose={() => setIsSyncModalOpen(false)}
           onUpdateSyncMode={async (mode: SyncMode) => {

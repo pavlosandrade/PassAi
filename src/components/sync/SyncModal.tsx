@@ -17,21 +17,23 @@ import {
 import { WebRTCSyncHost, WebRTCSyncClient } from '@/services/webrtcSyncService';
 import { mergeVaultData } from '@/services/syncMergeService';
 import { encryptData, decryptData } from '@/crypto/cipher';
-import { generateSalt, arrayBufferToBase64 } from '@/crypto/pbkdf2';
+import { deriveKeyFromPassword, generateSalt, arrayBufferToBase64 } from '@/crypto/pbkdf2';
 import { EncryptedPayload } from '@/types/crypto';
 
 interface SyncModalProps {
   userProfile: UserProfile;
   vaultData: VaultData;
+  masterPassword?: string | null;
   masterPasswordKey?: CryptoKey;
   onClose: () => void;
   onUpdateSyncMode: (mode: SyncMode) => void;
-  onVaultUpdated: (updatedVault: VaultData, encryptedPayload: EncryptedPayload) => void;
+  onVaultUpdated: (updatedVault: VaultData) => void;
 }
 
 export default function SyncModal({
   userProfile,
   vaultData,
+  masterPassword,
   masterPasswordKey,
   onClose,
   onUpdateSyncMode,
@@ -106,7 +108,7 @@ export default function SyncModal({
 
   // Sincronizar com o Google Drive (Upload ou Download/Merge)
   const handleSyncWithDrive = async () => {
-    if (!masterPasswordKey) {
+    if (!masterPassword) {
       setErrorMessage('Sessão inválida. Faça login novamente.');
       return;
     }
@@ -125,28 +127,31 @@ export default function SyncModal({
       const remote = await downloadVaultFromDrive(token);
 
       if (remote && remote.payload) {
-        // Decripta cofre remoto
+        // Decripta cofre remoto usando a senha mestra e o SALT do payload remoto!
         let remoteVault: VaultData;
         try {
-          remoteVault = await decryptData<VaultData>(remote.payload, masterPasswordKey);
+          const { key: remoteKey } = await deriveKeyFromPassword(masterPassword, remote.payload.salt);
+          remoteVault = await decryptData<VaultData>(remote.payload, remoteKey);
         } catch {
-          throw new Error('Não foi possível descriptografar o cofre do Google Drive. A senha mestra pode ser diferente.');
+          throw new Error('Não foi possível descriptografar o cofre do Google Drive. Verifique se a Senha Mestra é exatamente a mesma usada no outro aparelho.');
         }
 
         // Realiza fusão
         const mergedVault = mergeVaultData(vaultData, remoteVault);
         const salt = remote.payload.salt || arrayBufferToBase64(generateSalt());
-        const encryptedMerged = await encryptData(mergedVault, masterPasswordKey, salt);
+        const { key: mergedKey } = await deriveKeyFromPassword(masterPassword, salt);
+        const encryptedMerged = await encryptData(mergedVault, mergedKey, salt);
 
         // Upload da fusão atualizada
         await uploadVaultToDrive(encryptedMerged, token);
 
-        onVaultUpdated(mergedVault, encryptedMerged);
+        await onVaultUpdated(mergedVault);
         setStatusMessage('Cofre sincronizado e atualizado com o Google Drive com sucesso!');
       } else {
         // Se não existir arquivo remoto, faz upload do atual
         const salt = arrayBufferToBase64(generateSalt());
-        const encryptedLocal = await encryptData(vaultData, masterPasswordKey, salt);
+        const { key: localKey } = await deriveKeyFromPassword(masterPassword, salt);
+        const encryptedLocal = await encryptData(vaultData, localKey, salt);
         await uploadVaultToDrive(encryptedLocal, token);
         setStatusMessage('Seu cofre foi enviado para o Google Drive!');
       }
@@ -166,16 +171,15 @@ export default function SyncModal({
     const host = new WebRTCSyncHost({
       onStatusChange: (status) => setP2pStatus(status),
       onPayloadReceived: async (payload) => {
-        if (!masterPasswordKey) return;
+        if (!masterPassword) return;
         try {
-          const remoteVault = await decryptData<VaultData>(payload, masterPasswordKey);
+          const { key: remoteKey } = await deriveKeyFromPassword(masterPassword, payload.salt);
+          const remoteVault = await decryptData<VaultData>(payload, remoteKey);
           const merged = mergeVaultData(vaultData, remoteVault);
-          const salt = payload.salt || arrayBufferToBase64(generateSalt());
-          const encryptedMerged = await encryptData(merged, masterPasswordKey, salt);
-          onVaultUpdated(merged, encryptedMerged);
+          await onVaultUpdated(merged);
           setP2pStatus('Cofre recebido e mesclado com sucesso!');
         } catch {
-          setErrorMessage('Erro ao decriptar cofre recebido via P2P.');
+          setErrorMessage('Erro ao decriptar cofre recebido via P2P. A Senha Mestra pode ser diferente.');
         }
       },
     });
@@ -193,10 +197,11 @@ export default function SyncModal({
 
   // P2P - Enviar Cofre via Host
   const handleP2PSendLocalVault = async () => {
-    if (!p2pHost || !masterPasswordKey) return;
+    if (!p2pHost || !masterPassword) return;
     try {
       const salt = arrayBufferToBase64(generateSalt());
-      const encrypted = await encryptData(vaultData, masterPasswordKey, salt);
+      const { key: localKey } = await deriveKeyFromPassword(masterPassword, salt);
+      const encrypted = await encryptData(vaultData, localKey, salt);
       p2pHost.sendEncryptedPayload(encrypted);
       setP2pStatus('Cofre enviado via P2P!');
     } catch (err: any) {
@@ -224,16 +229,15 @@ export default function SyncModal({
     const client = new WebRTCSyncClient({
       onStatusChange: (status) => setP2pStatus(status),
       onPayloadReceived: async (payload) => {
-        if (!masterPasswordKey) return;
+        if (!masterPassword) return;
         try {
-          const remoteVault = await decryptData<VaultData>(payload, masterPasswordKey);
+          const { key: remoteKey } = await deriveKeyFromPassword(masterPassword, payload.salt);
+          const remoteVault = await decryptData<VaultData>(payload, remoteKey);
           const merged = mergeVaultData(vaultData, remoteVault);
-          const salt = payload.salt || arrayBufferToBase64(generateSalt());
-          const encryptedMerged = await encryptData(merged, masterPasswordKey, salt);
-          onVaultUpdated(merged, encryptedMerged);
+          await onVaultUpdated(merged);
           setP2pStatus('Cofre sincronizado via P2P com sucesso!');
         } catch {
-          setErrorMessage('Erro ao decriptar cofre P2P.');
+          setErrorMessage('Erro ao decriptar cofre P2P. A Senha Mestra pode ser diferente.');
         }
       },
     });

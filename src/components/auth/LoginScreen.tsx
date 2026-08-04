@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check, ShieldCheck, FileCheck } from 'lucide-react';
-import { UserProfile } from '@/types/vault';
+import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check, ShieldCheck, FileCheck, Cloud } from 'lucide-react';
+import { UserProfile, VaultData } from '@/types/vault';
+import { authenticateGoogleDrive, downloadVaultFromDrive } from '@/services/googleDriveService';
+import { deriveKeyFromPassword } from '@/crypto/pbkdf2';
+import { decryptData } from '@/crypto/cipher';
+import { saveEncryptedVaultForUser } from '@/services/storageService';
 import PrivacyPolicyModal from '@/components/legal/PrivacyPolicyModal';
 import TermsOfServiceModal from '@/components/legal/TermsOfServiceModal';
 
@@ -225,6 +229,38 @@ export default function LoginScreen({
           >
             <UserPlus size={15} style={{ color: 'var(--accent-cyan)' }} />
             Não possui um cofre? <strong style={{ color: 'var(--accent-cyan)' }}>Criar Conta</strong>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setError('');
+              setSuccess('');
+              try {
+                const token = await authenticateGoogleDrive();
+                const remote = await downloadVaultFromDrive(token);
+                if (remote && remote.payload) {
+                  if (remote.payload.ciphertext && password) {
+                    const { key } = await deriveKeyFromPassword(password, remote.payload.salt);
+                    const vault = await decryptData<VaultData>(remote.payload, key);
+                    if (vault.userProfile?.email) {
+                      await saveEncryptedVaultForUser(vault.userProfile.email, remote.payload, vault.userProfile.name);
+                      await onLogin(vault.userProfile.email, password);
+                      return;
+                    }
+                  }
+                  setSuccess('Cofre localizado no Google Drive! Digite sua Senha Mestra e clique em "Entrar no Cofre".');
+                } else {
+                  setError('Nenhum cofre do PassAi foi encontrado no seu Google Drive.');
+                }
+              } catch (err: any) {
+                setError(err.message || 'Erro ao carregar do Google Drive.');
+              }
+            }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+          >
+            <Cloud size={15} />
+            Baixar / Restaurar do Google Drive
           </button>
 
           <label style={{ cursor: 'pointer', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
