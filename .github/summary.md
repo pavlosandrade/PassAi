@@ -12,6 +12,7 @@ Este documento consolida a visão funcional e a arquitetura técnica do PassAi p
 > 1. [context.md](context.md): regras de negócio, escopo funcional e UX.
 > 2. [architecture.md](architecture.md): arquitetura, stack técnica e dados.
 > 3. [SUMMARY.md](SUMMARY.md): resumo executivo e índice de governança.
+> 4. **Proibição de Diálogos Nativos**: Nunca utilize `alert()`, `confirm()` ou `prompt()`. Toda confirmação deve utilizar componentes de UI customizados da aplicação (`ConfirmModal`).
 
 ## Status do Projeto (Em Expansão — Etapa 8 em Desenvolvimento)
 

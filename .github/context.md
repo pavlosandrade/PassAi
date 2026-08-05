@@ -106,6 +106,8 @@ O PassAi resolve esse dilema com os seguintes pilares:
     servidores externos da aplicação.
 3.  **Controle pelo usuário:** definição manual de quais pastas exigem camada
     extra de proteção e qual modalidade de sincronização utilizar.
+4.  **Interface Nativa da Aplicação (Proibição de Diálogos Nativos do Navegador):**
+    Toda e qualquer solicitação de confirmação (como exclusão de conta, remoção de cofre ou ações destrutivas) **deve obrigatoriamente utilizar componentes de UI customizados da aplicação** (ex: `ConfirmModal` com o design system do PassAi em glassmorphism). É terminantemente proibido o uso de diálogos nativos do navegador (`window.confirm`, `window.alert` ou `window.prompt`).
 
 ## Jornada do usuário
 

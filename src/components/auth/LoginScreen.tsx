@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check, Cloud, Fingerprint, Users, Trash2, ChevronRight, LogIn } from 'lucide-react';
+import { Shield, Lock, Eye, EyeOff, KeyRound, Mail, UserPlus, Upload, AlertCircle, RefreshCw, Check, Cloud, Fingerprint, Users, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
 import { UserProfile, VaultData } from '@/types/vault';
 import { authenticateGoogleDrive, downloadVaultFromDrive } from '@/services/googleDriveService';
 import { deriveKeyFromPassword } from '@/crypto/pbkdf2';
@@ -9,6 +9,7 @@ import { decryptData } from '@/crypto/cipher';
 import { saveEncryptedVaultForUser, getRegisteredAccountsList, AccountIndexItem, deleteUserVault } from '@/services/storageService';
 import { isBiometricVaultAvailable, unlockVaultWithBiometrics, isWebAuthnSupported } from '@/services/webAuthnService';
 import GoogleInitialSetupModal from '@/components/auth/GoogleInitialSetupModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface LoginScreenProps {
   userProfile?: UserProfile;
@@ -27,9 +28,10 @@ export default function LoginScreen({
 }: LoginScreenProps) {
   const [accounts, setAccounts] = useState<AccountIndexItem[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<{ email: string; name: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'locked_profile' | 'account_select' | 'custom_email'>('locked_profile');
+  const [isCustomEmailMode, setIsCustomEmailMode] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
 
-  const [email, setEmail] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -47,58 +49,49 @@ export default function LoginScreen({
   const loadAccounts = async () => {
     const list = await getRegisteredAccountsList();
     setAccounts(list);
-
-    if (userProfile?.email) {
-      setSelectedAccount({ email: userProfile.email, name: userProfile.name || userProfile.email });
-      setEmail(userProfile.email);
-      setViewMode('locked_profile');
-    } else if (list.length > 0) {
-      setSelectedAccount({ email: list[list.length - 1].email, name: list[list.length - 1].name });
-      setEmail(list[list.length - 1].email);
-      setViewMode('locked_profile');
-    } else {
-      setViewMode('custom_email');
-    }
+    // A tela inicial SEMPRE começa na seleção de cofre/ações principais
+    setSelectedAccount(null);
+    setIsCustomEmailMode(false);
   };
 
+  // Verifica disponibilidade da biometria para a conta selecionada ou e-mail digitado
   useEffect(() => {
-    const targetEmail = selectedAccount?.email || email;
+    const targetEmail = selectedAccount?.email || emailInput;
     if (targetEmail && isWebAuthnSupported()) {
       setHasBiometrics(isBiometricVaultAvailable(targetEmail));
     } else {
       setHasBiometrics(false);
     }
-  }, [selectedAccount, email]);
+  }, [selectedAccount, emailInput]);
 
   const handleSelectAccount = (acc: AccountIndexItem) => {
     setSelectedAccount({ email: acc.email, name: acc.name });
-    setEmail(acc.email);
     setPassword('');
     setError('');
     setSuccess('');
-    setViewMode('locked_profile');
+    setIsCustomEmailMode(false);
   };
 
-  const handleRemoveAccount = async (accEmail: string, e: React.MouseEvent) => {
+  const handleRemoveAccount = (accEmail: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Deseja remover a conta "${accEmail}" deste dispositivo?`)) {
-      await deleteUserVault(accEmail);
-      const updated = await getRegisteredAccountsList();
-      setAccounts(updated);
-      if (selectedAccount?.email.toLowerCase() === accEmail.toLowerCase()) {
-        if (updated.length > 0) {
-          handleSelectAccount(updated[0]);
-        } else {
-          setSelectedAccount(null);
-          setEmail('');
-          setViewMode('custom_email');
-        }
-      }
+    setAccountToDelete(accEmail);
+  };
+
+  const executeAccountDeletion = async () => {
+    if (!accountToDelete) return;
+    const targetEmail = accountToDelete;
+    setAccountToDelete(null);
+    await deleteUserVault(targetEmail);
+    const updated = await getRegisteredAccountsList();
+    setAccounts(updated);
+    if (selectedAccount?.email.toLowerCase() === targetEmail.toLowerCase()) {
+      setSelectedAccount(null);
+      setPassword('');
     }
   };
 
   const handleBiometricLogin = async () => {
-    const targetEmail = selectedAccount?.email || email;
+    const targetEmail = selectedAccount?.email || emailInput;
     if (!targetEmail.trim()) {
       setError('Informe seu e-mail para desbloquear com a biometria.');
       return;
@@ -127,7 +120,6 @@ export default function LoginScreen({
     try {
       const token = await authenticateGoogleDrive();
 
-      // 1. Obtém e-mail e nome do usuário diretamente da conta do Google
       let userGoogleEmail = '';
       let userGoogleName = '';
 
@@ -144,26 +136,21 @@ export default function LoginScreen({
         console.warn('Não foi possível obter dados do perfil do Google:', uErr);
       }
 
-      // 2. Busca cofre no Google Drive
       const remote = await downloadVaultFromDrive(token);
 
       if (remote && remote.payload) {
-        // O cofre já existe no Google Drive
-        const targetEmail = userGoogleEmail || selectedAccount?.email || email;
+        const targetEmail = userGoogleEmail || selectedAccount?.email || emailInput;
 
         if (targetEmail) {
           await saveEncryptedVaultForUser(targetEmail, remote.payload, userGoogleName || targetEmail);
           setSelectedAccount({ email: targetEmail, name: userGoogleName || targetEmail });
-          setEmail(targetEmail);
-          setViewMode('locked_profile');
+          setIsCustomEmailMode(false);
 
-          // Se a senha já estava digitada no campo, faz login direto!
           if (password) {
             const isOk = await onLogin(targetEmail, password);
             if (isOk) return;
           }
 
-          // Se tiver biometria cadastrada neste aparelho, tenta desbloquear automaticamente!
           if (isWebAuthnSupported() && isBiometricVaultAvailable(targetEmail)) {
             try {
               const unlockedPassword = await unlockVaultWithBiometrics(targetEmail);
@@ -177,8 +164,7 @@ export default function LoginScreen({
 
         setSuccess('Cofre do Google Drive localizado! Digite sua Senha Mestra para abrir.');
       } else {
-        // NÃO existe cofre no Google Drive -> Primeiro acesso com Google!
-        const finalEmail = userGoogleEmail || selectedAccount?.email || email;
+        const finalEmail = userGoogleEmail || selectedAccount?.email || emailInput;
 
         if (finalEmail) {
           setGoogleSetupData({
@@ -187,14 +173,7 @@ export default function LoginScreen({
             token,
           });
         } else {
-          const inputEmail = prompt('Digite seu e-mail do Google para criar seu cofre:');
-          if (inputEmail) {
-            setGoogleSetupData({
-              email: inputEmail.trim().toLowerCase(),
-              name: inputEmail.split('@')[0],
-              token,
-            });
-          }
+          setError('Não foi possível identificar o e-mail da sua conta do Google. Por favor, tente novamente.');
         }
       }
     } catch (err: any) {
@@ -210,7 +189,7 @@ export default function LoginScreen({
     setSuccess('');
     setInvalidFields({});
 
-    const targetEmail = selectedAccount?.email || email;
+    const targetEmail = selectedAccount?.email || emailInput;
 
     const newInvalid: Record<string, boolean> = {};
     if (!targetEmail.trim()) newInvalid.email = true;
@@ -218,7 +197,7 @@ export default function LoginScreen({
 
     if (Object.keys(newInvalid).length > 0) {
       setInvalidFields(newInvalid);
-      setError('Por favor, preencha as credenciais.');
+      setError('Por favor, preencha a Senha Mestra.');
       return;
     }
 
@@ -252,9 +231,8 @@ export default function LoginScreen({
         setSuccess(res.message);
       }
       if (res?.email) {
-        setEmail(res.email);
         setSelectedAccount({ email: res.email, name: res.email });
-        setViewMode('locked_profile');
+        setIsCustomEmailMode(false);
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao importar arquivo de backup.');
@@ -265,7 +243,7 @@ export default function LoginScreen({
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
       <div className="glass-panel animate-fade-in" style={{ maxWidth: '420px', width: '100%', padding: '2.25rem' }}>
         
-        {/* Sleek Header */}
+        {/* Header Logo */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'inline-flex', padding: '0.85rem', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', borderRadius: 'var(--radius-full)', marginBottom: '0.65rem' }}>
             <Shield style={{ width: '32px', height: '32px', color: 'var(--accent-cyan)' }} />
@@ -273,12 +251,9 @@ export default function LoginScreen({
           <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
             PassAi <span className="gradient-text">Vault</span>
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.35rem', lineHeight: 1.4 }}>
-            Gerenciador de senhas pessoal com criptografia de ponta a ponta (AES-256).
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.35rem' }}>
+            Gerenciador de senhas pessoal
           </p>
-          <div style={{ marginTop: '0.5rem', padding: '0.45rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0, 242, 254, 0.05)', border: '1px solid rgba(0, 242, 254, 0.15)', fontSize: '0.73rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
-            A integração com a conta do Google é utilizada exclusivamente para backup e sincronização do cofre no seu próprio Google Drive.
-          </div>
         </div>
 
         {/* Feedback Messages */}
@@ -296,12 +271,170 @@ export default function LoginScreen({
           </div>
         )}
 
-        {/* --- MODO 1: PERFIL TRANCADO --- */}
-        {viewMode === 'locked_profile' && selectedAccount && (
+        {/* --- VISÃO A: TELA INICIAL PRINCIPAL (ESCOLHER COFRE + BOTÕES SEPARADOS) --- */}
+        {!selectedAccount && !isCustomEmailMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
+            {/* Lista de Cofres / Contas no Dispositivo (se houver) */}
+            {accounts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <h2 style={{ fontSize: '0.88rem', fontWeight: 600, margin: '0 0 0.2rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                  <Users size={15} style={{ color: 'var(--accent-cyan)' }} />
+                  Escolha seu Cofre
+                </h2>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', maxHeight: '220px', overflowY: 'auto' }}>
+                  {accounts.map((acc) => (
+                    <div
+                      key={acc.email}
+                      onClick={() => handleSelectAccount(acc)}
+                      className="glass-card hover:border-cyan-400"
+                      style={{
+                        padding: '0.75rem 0.9rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-light)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-full)', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#05070f', fontWeight: 800, fontSize: '0.9rem', flexShrink: 0 }}>
+                          {(acc.name || acc.email)[0].toUpperCase()}
+                        </div>
+                        <div style={{ overflow: 'hidden', textAlign: 'left' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {acc.name}
+                          </div>
+                          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {acc.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveAccount(acc.email, e)}
+                        title="Remover conta do dispositivo"
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Seção de Botões de Ação Padronizados */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              
+              {/* 1. Botão Entrar por E-mail */}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setSelectedAccount(null);
+                  setEmailInput('');
+                  setIsCustomEmailMode(true);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                }}
+              >
+                <Mail size={18} style={{ color: 'var(--text-muted)' }} />
+                Entrar com E-mail
+              </button>
+
+              {/* 2. Botão Google */}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleGoogleLogin}
+                disabled={isSubmitting}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  fontSize: '0.85rem',
+                  border: '1px solid rgba(0, 242, 254, 0.35)',
+                  background: 'rgba(0, 242, 254, 0.05)',
+                  color: 'var(--text-primary)',
+                  fontWeight: 600,
+                }}
+              >
+                <Cloud size={18} style={{ color: 'var(--accent-cyan)' }} />
+                Entrar com o Google
+              </button>
+
+              {/* Divisor / Separador OU */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.25rem 0', color: 'var(--text-muted)', fontSize: '0.73rem' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
+                <span>OU</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
+              </div>
+
+              {/* 3. Botão Em Gradiente para Criar Nova Conta (Após o separador) */}
+              <button
+                type="button"
+                onClick={onNavigateToRegister}
+                style={{
+                  width: '100%',
+                  padding: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, var(--accent-cyan), #0077ff)',
+                  color: '#05070f',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 16px rgba(0, 242, 254, 0.35)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Sparkles size={18} />
+                Criar Nova Conta
+              </button>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* --- VISÃO B: FORMULÁRIO DE DESBLOQUEIO DE CONTA SELECIONADA --- */}
+        {selectedAccount && !isCustomEmailMode && (
           <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
             
-            {/* User Profile Pill */}
-            <div className="glass-card" style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0, 242, 254, 0.25)', background: 'rgba(0, 242, 254, 0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAccount(null);
+                setPassword('');
+                setError('');
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.78rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginBottom: '-0.2rem' }}
+            >
+              <ArrowLeft size={14} /> Voltar para opções de conta
+            </button>
+
+            {/* Profile Card */}
+            <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0, 242, 254, 0.25)', background: 'rgba(0, 242, 254, 0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
                 <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-full)', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#05070f', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>
                   {(selectedAccount.name || selectedAccount.email)[0].toUpperCase()}
@@ -322,7 +455,7 @@ export default function LoginScreen({
               </span>
             </div>
 
-            {/* Master Password Input */}
+            {/* Password Input */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                 <label htmlFor="login-password" style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
@@ -366,7 +499,7 @@ export default function LoginScreen({
               </div>
             </div>
 
-            {/* Main Action Buttons */}
+            {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 type="submit"
@@ -390,133 +523,27 @@ export default function LoginScreen({
                   className="btn btn-secondary"
                   onClick={handleBiometricLogin}
                   disabled={isSubmitting}
-                  title="Desbloquear com Biometria"
+                  title="Desbloquear com Biometria / Digital"
                   style={{ padding: '0.75rem', borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)', background: 'rgba(0, 245, 160, 0.08)' }}
                 >
                   <Fingerprint size={20} />
                 </button>
               )}
             </div>
-
-            {/* Google Sign In Option */}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleGoogleLogin}
-              disabled={isSubmitting}
-              style={{ width: '100%', padding: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.82rem', border: '1px solid rgba(0, 242, 254, 0.3)', background: 'rgba(0, 242, 254, 0.04)', color: 'var(--text-primary)', fontWeight: 600 }}
-            >
-              <Cloud size={16} style={{ color: 'var(--accent-cyan)' }} />
-              Entrar / Sincronizar com Google
-            </button>
-
-            {/* Account Management Links */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.2rem', fontSize: '0.78rem' }}>
-              {accounts.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setViewMode('account_select')}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                >
-                  <Users size={14} /> Mudar Conta ({accounts.length})
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAccount(null);
-                  setEmail('');
-                  setPassword('');
-                  setViewMode('custom_email');
-                }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-              >
-                <LogIn size={14} /> Outro e-mail
-              </button>
-            </div>
           </form>
         )}
 
-        {/* --- MODO 2: SELEÇÃO DE CONTAS --- */}
-        {viewMode === 'account_select' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-primary)' }}>
-              <Users size={16} style={{ color: 'var(--accent-cyan)' }} />
-              Contas no Dispositivo
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
-              {accounts.map((acc) => (
-                <div
-                  key={acc.email}
-                  onClick={() => handleSelectAccount(acc)}
-                  className="glass-card"
-                  style={{
-                    padding: '0.75rem 0.85rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: selectedAccount?.email === acc.email ? '1px solid var(--accent-cyan)' : '1px solid var(--border-light)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-full)', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#05070f', fontWeight: 800, fontSize: '0.85rem', flexShrink: 0 }}>
-                      {(acc.name || acc.email)[0].toUpperCase()}
-                    </div>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {acc.name}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {acc.email}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => handleRemoveAccount(acc.email, e)}
-                    title="Remover conta"
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setSelectedAccount(null);
-                  setEmail('');
-                  setViewMode('custom_email');
-                }}
-                style={{ flex: 1, fontSize: '0.78rem', padding: '0.6rem' }}
-              >
-                Entrar por E-mail
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onNavigateToRegister}
-                style={{ flex: 1, fontSize: '0.78rem', padding: '0.6rem' }}
-              >
-                Criar Nova Conta
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* --- MODO 3: FORMULÁRIO DE E-MAIL LIMPO --- */}
-        {viewMode === 'custom_email' && (
+        {/* --- VISÃO C: FORMULÁRIO DE E-MAIL E SENHA MANUAL --- */}
+        {isCustomEmailMode && (
           <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setIsCustomEmailMode(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.78rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginBottom: '-0.2rem' }}
+            >
+              <ArrowLeft size={14} /> Voltar para opções de conta
+            </button>
+
             <div>
               <label htmlFor="login-email" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
                 E-mail
@@ -528,8 +555,8 @@ export default function LoginScreen({
                   type="email"
                   className="input-field"
                   placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
                   style={{ paddingLeft: '2.2rem' }}
                   autoFocus
                 />
@@ -586,46 +613,16 @@ export default function LoginScreen({
                 </>
               )}
             </button>
-
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleGoogleLogin}
-              disabled={isSubmitting}
-              style={{ width: '100%', padding: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.82rem', border: '1px solid rgba(0, 242, 254, 0.3)', background: 'rgba(0, 242, 254, 0.04)', color: 'var(--text-primary)', fontWeight: 600 }}
-            >
-              <Cloud size={16} style={{ color: 'var(--accent-cyan)' }} />
-              Entrar com o Google
-            </button>
-
-            {accounts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setViewMode('account_select')}
-                style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', marginTop: '0.2rem' }}
-              >
-                ← Voltar para as contas salvas
-              </button>
-            )}
           </form>
         )}
 
         {/* Minimal Footer */}
         <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: '0.6rem', textAlign: 'center', fontSize: '0.78rem' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-            <button
-              type="button"
-              onClick={onNavigateToRegister}
-              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-            >
-              <UserPlus size={14} />
-              Criar Conta
-            </button>
-
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
             <label style={{ cursor: 'pointer', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
               <Upload size={13} />
-              Restaurar Backup
+              Restaurar Backup (.json)
               <input type="file" accept=".json" onChange={handleFileUpload} style={{ display: 'none' }} />
             </label>
           </div>
@@ -642,6 +639,19 @@ export default function LoginScreen({
         </div>
 
       </div>
+
+      {/* Modal de Confirmação de Exclusão de Conta */}
+      <ConfirmModal
+        isOpen={!!accountToDelete}
+        title="Remover Conta do Dispositivo"
+        description={`Tem certeza que deseja remover a conta "${accountToDelete}" deste dispositivo?`}
+        warningText="O cofre encriptado continuará salvo em seus backups ou Google Drive, mas deixará de aparecer nesta máquina."
+        confirmText="Remover Conta"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeAccountDeletion}
+        onClose={() => setAccountToDelete(null)}
+      />
 
       {/* Modal de Primeiro Acesso do Google */}
       {googleSetupData && (
